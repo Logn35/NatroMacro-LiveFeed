@@ -21917,6 +21917,8 @@ start(*){
 	if (discordCheck && (((discordMode = 0) && RegExMatch(webhook, "i)^https:\/\/(canary\.|ptb\.)?(discord|discordapp)\.com\/api\/webhooks\/([\d]+)\/([a-z0-9_-]+)$"))
 		|| ((discordMode = 1) && (ReportChannelCheck = 1) && (ReportChannelID || MainChannelID))))
 		run '"' exe_path64 '" /script "' A_WorkingDir '\submacros\StatMonitor.ahk" "' VersionID '"'
+	;start HTML stats display
+	try run '"' exe_path64 '" /script "' A_WorkingDir '\submacros\HtmlStats.ahk"'
 	;start main loop
 	nm_setStatus("Begin", "Main Loop")
 	nm_Start()

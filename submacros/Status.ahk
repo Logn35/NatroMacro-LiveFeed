@@ -2445,9 +2445,58 @@ nm_command(command)
 class discord
 {
 	static baseURL := "https://discord.com/api/v10/"
+	static htmlLogMaxMessages := 50
+
+	; Write message to JavaScript file for HTML display
+	static WriteToHtmlLog(message, color:=3223350)
+	{
+		try
+		{
+			; Use script directory for the log file (JS file so it can be loaded via script tag)
+			htmlLogFile := A_WorkingDir "\feed\stat_monitor_messages.js"
+
+			; Read existing messages from the JS file
+			messages := []
+			if FileExist(htmlLogFile)
+			{
+				try
+				{
+					content := FileRead(htmlLogFile, "UTF-8")
+					; Extract JSON from "var statMessages = [...];" - remove the prefix and suffix
+					content := RegExReplace(content, "^var statMessages = ", "")
+					content := RegExReplace(content, ";$", "")
+					if (content != "")
+						messages := JSON.parse(content)
+				}
+			}
+
+			; Ensure messages is an array
+			if (Type(messages) != "Array")
+				messages := []
+
+			; Add new message with timestamp as a Map
+			newMsg := Map()
+			newMsg["timestamp"] := FormatTime(, "yyyy-MM-dd HH:mm:ss")
+			newMsg["message"] := message
+			newMsg["color"] := color
+			messages.Push(newMsg)
+
+			; Keep only the last N messages
+			while (messages.Length > this.htmlLogMaxMessages)
+				messages.RemoveAt(1)
+
+			; Write back as JavaScript file (use 0 for single-line JSON)
+			try FileDelete(htmlLogFile)
+			f := FileOpen(htmlLogFile, "w", "UTF-8")
+			f.Write("var statMessages = " JSON.stringify(messages, 0) ";")
+			f.Close()
+		}
+	}
 
 	static SendEmbed(message, color:=3223350, content:="", pBitmap:=0, channel:="", replyID:=0)
 	{
+		; Also write to HTML log file
+		this.WriteToHtmlLog(message, color)
 		payload_json :=
 		(
 		'

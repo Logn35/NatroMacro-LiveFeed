@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stat Monitor</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #121212;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #e0e0e0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Messages container */
+        #messages-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: 600px;
+            overflow: hidden;
+            flex-grow: 1;
+            padding: 0 20px;
+        }
+        .feed-box {
+            background: #201E20;
+            border-radius: 10px;
+            border: 1px solid #2C2A2C;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+            padding: 14px 16px;
+            margin: 0 20px;
+            max-width: 340px;
+            flex: 1 1 auto;
+            overflow: hidden;
+        }
+        .feed-title {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: row;
+            align-items: stretch;
+            gap: 0;
+        }
+        .color-bar {
+            width: 4px;
+            border-radius: 4px 0 0 4px;
+            flex-shrink: 0;
+        }
+        .embed {
+            background-color: #272527;
+            border-radius: 0 6px 6px 0;
+            padding: 10px 14px;
+        }
+        .message {
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .embed-content {
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .no-messages {
+            color: #555;
+            font-style: italic;
+            padding: 20px;
+        }
+        .bold {
+            font-weight: 700;
+            color: #fff;
+        }
+        code {
+            background: #2C2A2C;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* Stats Header */
+        .stats-header {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            padding: 8px 20px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            align-items: stretch;
+        }
+        .stat-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 140px;
+            padding: 3px 10px 6px 10px;
+            background: #201E20;
+            border-radius: 8px;
+            border: 1px solid #2C2A2C;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+            height: 78px;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            background: #2C2A2C;
+            border-radius: 4px;
+            line-height: 1;
+        }
+        .stat-text {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            transform: translateY(-2px);
+        }
+        .stat-value.honey {
+            color: #ffc107;
+        }
+        .stat-value.backpack {
+            position: relative;
+            text-align: center;
+            color: #f8f8f8;
+            overflow: hidden;
+        }
+        .backpack-bar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            border-radius: 4px;
+            z-index: 0;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+        .backpack-text {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: translateY(-2px);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+        }
+        .planters-box {
+            width: 420px;
+            flex: 0 0 420px;
+            align-items: stretch;
+            order: 3;
+        }
+        .planters-box .stat-label {
+            width: 100%;
+            text-align: center;
+        }
+        .nectars-box {
+            width: 320px;
+            flex: 0 0 320px;
+            order: 3;
+        }
+        .buffs-box {
+            width: auto;
+            flex: 2 1 0;
+            justify-content: flex-start;
+            order: 2;
+        }
+        .stats-header.force-second-row .planters-box {
+            flex: 1 1 0;
+            width: auto;
+            min-width: 420px;
+        }
+        .flex-break {
+            flex-basis: 100%;
+            height: 0;
+            display: none;
+            order: 3;
+        }
+        .stats-header.force-second-row .flex-break {
+            display: block;
+        }
+        .buffs-header {
+            position: relative;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 4px;
+        }
+        .buffs-filter {
+            position: absolute;
+            right: 0;
+            top: 0;
+        }
+        .buffs-filter-btn {
+            background: #2C2A2C;
+            color: #d4d4d4;
+            font-size: 0;
+            padding: 4px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 22px;
+            height: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+        }
+        .buffs-filter-btn svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+        .buffs-filter-panel {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            background: #1b1a1b;
+            border: 1px solid #2C2A2C;
+            border-radius: 8px;
+            padding: 8px 10px;
+            min-width: 160px;
+            max-height: 220px;
+            overflow: auto;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+            z-index: 5;
+            display: none;
+        }
+        .buffs-filter-panel.open {
+            display: block;
+        }
+        .buffs-filter-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #cfcfcf;
+            padding: 4px 0;
+            cursor: pointer;
+        }
+        .buffs-filter-item input {
+            width: 14px;
+            height: 14px;
+        }
+        .buff-hidden {
+            display: none;
+        }
+        .buffs-box .buffs-grid {
+            flex: 1;
+            align-content: center;
+        }
+        .buffs-grid {
+            --buff-gap: 2px;
+            --buff-count: 18;
+            --buff-size: clamp(20px, calc((100% - (var(--buff-gap) * (var(--buff-count) - 1))) / var(--buff-count)), 44px);
+            display: flex;
+            gap: var(--buff-gap);
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            overflow: hidden;
+        }
+        .buff-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .buff-item.buff-hidden {
+            display: none;
+        }
+        .buff-icon-wrap {
+            position: relative;
+            width: var(--buff-size);
+            height: var(--buff-size);
+            --buff-icon: none;
+            --buff-fill: 0%;
+        }
+        .buff-icon-wrap::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 4px;
+            background-image: var(--buff-icon);
+            background-size: cover;
+            background-position: center;
+            clip-path: inset(calc(100% - var(--buff-fill)) 0 0 0);
+            transition: clip-path 0.25s ease;
+        }
+        .buff-icon-img {
+            width: var(--buff-size);
+            height: var(--buff-size);
+            border-radius: 4px;
+            background: #2f2f2f;
+            object-fit: cover;
+            opacity: 0.25;
+        }
+        .buff-stack {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            color: #f5f5f5;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 1px 4px;
+            border-radius: 4px;
+            line-height: 1;
+            z-index: 2;
+            display: block;
+        }
+        .nectars-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            flex: 1;
+        }
+        .nectar-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            width: 60px;
+        }
+        .nectar-ring-wrap {
+            position: relative;
+            width: 38px;
+            height: 38px;
+        }
+        .nectar-ring {
+            width: 38px;
+            height: 38px;
+            transform: rotate(-90deg);
+        }
+        .nectar-ring circle {
+            fill: none;
+            stroke-width: 4;
+            stroke-linecap: round;
+        }
+        .nectar-ring .ring-bg {
+            stroke: #2f2f2f;
+        }
+        .nectar-ring .ring-value {
+            stroke-linecap: butt;
+        }
+        .nectar-ring .ring-projected {
+            opacity: 0.5;
+            stroke-dasharray: 2 4;
+            stroke-linecap: butt;
+            stroke: none;
+        }
+        .nectar-icon-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nectar-icon-center img {
+            width: 18px;
+            height: 18px;
+            object-fit: contain;
+        }
+        .nectar-percent {
+            font-size: 9px;
+            color: #cfcfcf;
+            line-height: 1;
+        }
+        .nectar-percent-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .nectar-plus {
+            font-size: 8px;
+            color: #9b9b9b;
+            line-height: 1;
+        }
+        .nectar-bar {
+            width: 50px;
+            height: 6px;
+            border-radius: 999px;
+            background: #2f2f2f;
+            position: relative;
+            overflow: hidden;
+        }
+        .nectar-fill {
+            height: 100%;
+            border-radius: inherit;
+            width: 0%;
+        }
+        .nectar-projected {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            border-radius: 0 999px 999px 0;
+            width: 0%;
+            opacity: 0.5;
+        }
+        .planters-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            width: 100%;
+            flex: 1;
+        }
+        .planter-slot {
+            background: #2C2A2C;
+            border-radius: 6px;
+            padding: 4px 6px;
+            min-height: 32px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 6px;
+        }
+        .planter-slot.empty {
+            color: #666;
+        }
+        .planter-icons {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+        }
+        .planter-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+            min-width: 0;
+        }
+        .planter-icon {
+            width: 28px;
+            height: 28px;
+            object-fit: contain;
+            display: none;
+        }
+        .planter-field {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: #b2b2b2;
+            justify-content: flex-start;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .nectar-inline {
+            width: 14px;
+            height: 14px;
+            object-fit: contain;
+            display: none;
+        }
+        .timer-icon {
+            width: 12px;
+            height: 12px;
+            display: inline-block;
+            flex-shrink: 0;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Ccircle cx='6' cy='6' r='5' fill='none' stroke='%238a8a8a' stroke-width='1'/%3E%3Cpath d='M6 3.2v3l2.2 1.2' fill='none' stroke='%238a8a8a' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / contain;
+        }
+        .planter-timer {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #f8f8f8;
+            justify-content: flex-start;
+        }
+    </style>
+</head>
+<body>
+    <div class="stats-header">
+        <div class="stat-box">
+            <div class="stat-label">Honey</div>
+            <div class="stat-value honey">
+                <span class="stat-text" id="honey-value">--</span>
+            </div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Backpack</div>
+            <div class="stat-value backpack" id="backpack-value">
+                <div class="backpack-bar" id="backpack-bar" style="width: 0%"></div>
+                <span class="backpack-text" id="backpack-text">--%</span>
+            </div>
+        </div>
+        <div class="stat-box buffs-box">
+            <div class="buffs-header">
+                <div class="stat-label">Buffs</div>
+                <div class="buffs-filter">
+                    <button class="buffs-filter-btn" id="buff-filter-btn" type="button" aria-label="Filter buffs">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M3 5a1 1 0 0 1 1-1h16a1 1 0 0 1 .8 1.6l-6.8 9.07V20a1 1 0 0 1-1.45.9l-3-1.5A1 1 0 0 1 9 18.5v-3.83L3.2 6.6A1 1 0 0 1 3 5z"/>
+                        </svg>
+                    </button>
+                    <div class="buffs-filter-panel" id="buff-filter-panel"></div>
+                </div>
+            </div>
+            <div class="buffs-grid">
+                <div class="buff-item" data-buff="blueboost">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-blueboost" alt="">
+                        <div class="buff-stack" id="buff-val-blueboost">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="redboost">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-redboost" alt="">
+                        <div class="buff-stack" id="buff-val-redboost">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="whiteboost">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-whiteboost" alt="">
+                        <div class="buff-stack" id="buff-val-whiteboost">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="haste">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-haste" alt="">
+                        <div class="buff-stack" id="buff-val-haste">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="focus">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-focus" alt="">
+                        <div class="buff-stack" id="buff-val-focus">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="bombcombo">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-bombcombo" alt="">
+                        <div class="buff-stack" id="buff-val-bombcombo">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="balloonaura">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-balloonaura" alt="">
+                        <div class="buff-stack" id="buff-val-balloonaura">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="inspire">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-inspire" alt="">
+                        <div class="buff-stack" id="buff-val-inspire">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="reindeerfetch">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-reindeerfetch" alt="">
+                        <div class="buff-stack" id="buff-val-reindeerfetch">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="honeymark">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-honeymark" alt="">
+                        <div class="buff-stack" id="buff-val-honeymark">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="pollenmark">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-pollenmark" alt="">
+                        <div class="buff-stack" id="buff-val-pollenmark">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="festivemark">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-festivemark" alt="">
+                        <div class="buff-stack" id="buff-val-festivemark"></div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="popstar">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-popstar" alt="">
+                        <div class="buff-stack" id="buff-val-popstar">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="melody">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-melody" alt="">
+                        <div class="buff-stack" id="buff-val-melody">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="bear">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-bear" alt="">
+                        <div class="buff-stack" id="buff-val-bear">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="babylove">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-babylove" alt="">
+                        <div class="buff-stack" id="buff-val-babylove">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="jbshare">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-jbshare" alt="">
+                        <div class="buff-stack" id="buff-val-jbshare">x0</div>
+                    </div>
+                </div>
+                <div class="buff-item" data-buff="guiding">
+                    <div class="buff-icon-wrap">
+                        <img class="buff-icon-img" id="buff-icon-guiding" alt="">
+                        <div class="buff-stack" id="buff-val-guiding">x0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="flex-break" aria-hidden="true"></div>
+        <div class="stat-box planters-box">
+            <div class="stat-label">Planters</div>
+            <div class="planters-grid">
+                <div class="planter-slot empty" id="planter-slot-1">
+                    <div class="planter-icons">
+                        <img class="planter-icon" id="planter-icon-1" alt="">
+                    </div>
+                    <div class="planter-info">
+                        <div class="planter-field">
+                            <img class="nectar-inline" id="nectar-inline-1" alt="">
+                            <span id="planter-field-1">Empty</span>
+                        </div>
+                        <div class="planter-timer">
+                            <span class="timer-icon" aria-hidden="true"></span>
+                            <span id="planter-timer-1">--</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="planter-slot empty" id="planter-slot-2">
+                    <div class="planter-icons">
+                        <img class="planter-icon" id="planter-icon-2" alt="">
+                    </div>
+                    <div class="planter-info">
+                        <div class="planter-field">
+                            <img class="nectar-inline" id="nectar-inline-2" alt="">
+                            <span id="planter-field-2">Empty</span>
+                        </div>
+                        <div class="planter-timer">
+                            <span class="timer-icon" aria-hidden="true"></span>
+                            <span id="planter-timer-2">--</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="planter-slot empty" id="planter-slot-3">
+                    <div class="planter-icons">
+                        <img class="planter-icon" id="planter-icon-3" alt="">
+                    </div>
+                    <div class="planter-info">
+                        <div class="planter-field">
+                            <img class="nectar-inline" id="nectar-inline-3" alt="">
+                            <span id="planter-field-3">Empty</span>
+                        </div>
+                        <div class="planter-timer">
+                            <span class="timer-icon" aria-hidden="true"></span>
+                            <span id="planter-timer-3">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="stat-box nectars-box">
+            <div class="stat-label">Nectars</div>
+            <div class="nectars-row">
+                <div class="nectar-item" data-nectar="comforting">
+                    <div class="nectar-ring-wrap">
+                        <svg class="nectar-ring" viewBox="0 0 36 36">
+                            <circle class="ring-bg" cx="18" cy="18" r="15"></circle>
+                            <circle class="ring-value" id="nectar-ring-comforting" cx="18" cy="18" r="15"></circle>
+                            <circle class="ring-projected" id="nectar-proj-comforting" cx="18" cy="18" r="15"></circle>
+                        </svg>
+                        <div class="nectar-icon-center">
+                            <img src="../nm_image_assets/ptimers/nectars/comforting.png" alt="">
+                        </div>
+                    </div>
+                    <div class="nectar-percent-row">
+                        <div class="nectar-percent" id="nectar-val-comforting">0%</div>
+                        <div class="nectar-plus" id="nectar-plus-comforting"></div>
+                    </div>
+                </div>
+                <div class="nectar-item" data-nectar="motivating">
+                    <div class="nectar-ring-wrap">
+                        <svg class="nectar-ring" viewBox="0 0 36 36">
+                            <circle class="ring-bg" cx="18" cy="18" r="15"></circle>
+                            <circle class="ring-value" id="nectar-ring-motivating" cx="18" cy="18" r="15"></circle>
+                            <circle class="ring-projected" id="nectar-proj-motivating" cx="18" cy="18" r="15"></circle>
+                        </svg>
+                        <div class="nectar-icon-center">
+                            <img src="../nm_image_assets/ptimers/nectars/motivating.png" alt="">
+                        </div>
+                    </div>
+                    <div class="nectar-percent-row">
+                        <div class="nectar-percent" id="nectar-val-motivating">0%</div>
+                        <div class="nectar-plus" id="nectar-plus-motivating"></div>
+                    </div>
+                </div>
+                <div class="nectar-item" data-nectar="satisfying">
+                    <div class="nectar-ring-wrap">
+                        <svg class="nectar-ring" viewBox="0 0 36 36">
+                            <circle class="ring-bg" cx="18" cy="18" r="15"></circle>
+                            <circle class="ring-value" id="nectar-ring-satisfying" cx="18" cy="18" r="15"></circle>
+                            <circle class="ring-projected" id="nectar-proj-satisfying" cx="18" cy="18" r="15"></circle>
+                        </svg>
+                        <div class="nectar-icon-center">
+                            <img src="../nm_image_assets/ptimers/nectars/satisfying.png" alt="">
+                        </div>
+                    </div>
+                    <div class="nectar-percent-row">
+                        <div class="nectar-percent" id="nectar-val-satisfying">0%</div>
+                        <div class="nectar-plus" id="nectar-plus-satisfying"></div>
+                    </div>
+                </div>
+                <div class="nectar-item" data-nectar="refreshing">
+                    <div class="nectar-ring-wrap">
+                        <svg class="nectar-ring" viewBox="0 0 36 36">
+                            <circle class="ring-bg" cx="18" cy="18" r="15"></circle>
+                            <circle class="ring-value" id="nectar-ring-refreshing" cx="18" cy="18" r="15"></circle>
+                            <circle class="ring-projected" id="nectar-proj-refreshing" cx="18" cy="18" r="15"></circle>
+                        </svg>
+                        <div class="nectar-icon-center">
+                            <img src="../nm_image_assets/ptimers/nectars/refreshing.png" alt="">
+                        </div>
+                    </div>
+                    <div class="nectar-percent-row">
+                        <div class="nectar-percent" id="nectar-val-refreshing">0%</div>
+                        <div class="nectar-plus" id="nectar-plus-refreshing"></div>
+                    </div>
+                </div>
+                <div class="nectar-item" data-nectar="invigorating">
+                    <div class="nectar-ring-wrap">
+                        <svg class="nectar-ring" viewBox="0 0 36 36">
+                            <circle class="ring-bg" cx="18" cy="18" r="15"></circle>
+                            <circle class="ring-value" id="nectar-ring-invigorating" cx="18" cy="18" r="15"></circle>
+                            <circle class="ring-projected" id="nectar-proj-invigorating" cx="18" cy="18" r="15"></circle>
+                        </svg>
+                        <div class="nectar-icon-center">
+                            <img src="../nm_image_assets/ptimers/nectars/invigorating.png" alt="">
+                        </div>
+                    </div>
+                    <div class="nectar-percent-row">
+                        <div class="nectar-percent" id="nectar-val-invigorating">0%</div>
+                        <div class="nectar-plus" id="nectar-plus-invigorating"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="feed-box">
+        <div class="feed-title">Feed</div>
+        <div id="messages-container">
+            <div class="no-messages">Waiting for messages...</div>
+        </div>
+    </div>
+
+    <script src="buff_icons.js"></script>
+    <script>
+        function colorToHex(color) {
+            if (typeof color === 'string') color = parseInt(color);
+            if (!color || isNaN(color)) return '#666';
+            return '#' + color.toString(16).padStart(6, '0');
+        }
+
+        function formatMessage(text) {
+            if (!text) return '';
+            text = text.replace(/\*\*(.+?)\*\*/g, '<span class="bold">$1</span>');
+            text = text.replace(/\\n/g, '<br>');
+            text = text.replace(/\n/g, '<br>');
+            text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+            return text;
+        }
+
+        function displayMessages() {
+            const container = document.getElementById('messages-container');
+
+            if (typeof statMessages === 'undefined' || !statMessages || statMessages.length === 0) {
+                container.innerHTML = '<div class="no-messages">Waiting for messages...</div>';
+                return;
+            }
+
+            let html = '';
+            for (let i = statMessages.length - 1; i >= 0; i--) {
+                const msg = statMessages[i];
+                const color = colorToHex(msg.color);
+                html += `
+                    <div class="message">
+                        <div class="color-bar" style="background-color: ${color};"></div>
+                        <div class="embed">
+                            <div class="embed-content">${formatMessage(msg.message || '')}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        function reloadMessages() {
+            const oldScript = document.getElementById('messages-script');
+            if (oldScript) oldScript.remove();
+
+            const script = document.createElement('script');
+            script.id = 'messages-script';
+            script.src = 'stat_monitor_messages.js?t=' + Date.now();
+            script.onload = displayMessages;
+            script.onerror = function() {};
+            document.head.appendChild(script);
+        }
+
+        function formatHoney(value) {
+            if (value === null || value === undefined || value === '--') return '--';
+            const num = Number(value);
+            if (isNaN(num)) return value;
+            if (num >= 1e15) return (num / 1e15).toFixed(2) + 'Q';
+            if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
+            if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+            return num.toLocaleString();
+        }
+
+        // Calculate color from green to yellow to red based on percentage
+        function getBackpackColor(percent) {
+            // 0% = green (76, 175, 80), 50% = yellow (255, 235, 59), 100% = red (244, 67, 54)
+            let r, g, b;
+            if (percent <= 50) {
+                // Green to Yellow
+                const t = percent / 50;
+                r = Math.round(76 + (255 - 76) * t);
+                g = Math.round(175 + (235 - 175) * t);
+                b = Math.round(80 + (59 - 80) * t);
+            } else {
+                // Yellow to Red
+                const t = (percent - 50) / 50;
+                r = Math.round(255 + (244 - 255) * t);
+                g = Math.round(235 + (67 - 235) * t);
+                b = Math.round(59 + (54 - 59) * t);
+            }
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function normalizeKey(value) {
+            return String(value || '').toLowerCase().replace(/\s+/g, '');
+        }
+
+        function getPlanterImage(name) {
+            if (!name || name === 'None') return '';
+            return `../nm_image_assets/ptimers/planters/${normalizeKey(name)}.png`;
+        }
+
+        function getNectarImage(name) {
+            if (!name || name === 'None') return '';
+            return `../nm_image_assets/ptimers/nectars/${normalizeKey(name)}.png`;
+        }
+
+        function formatTimer(totalSeconds) {
+            const seconds = Math.max(0, Math.floor(totalSeconds));
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            if (hrs > 0) {
+                return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }
+            return `${mins}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function setRingProgress(circle, percent, offsetPercent = 0) {
+            const radius = 15;
+            const circumference = 2 * Math.PI * radius;
+            const clamped = Math.max(0, Math.min(100, percent));
+            const dash = (clamped / 100) * circumference;
+            circle.style.strokeDasharray = `${dash} ${circumference - dash}`;
+            circle.style.strokeDashoffset = circumference * (1 - offsetPercent / 100);
+        }
+
+        function updateNectars(nectars) {
+            const colors = {
+                comforting: '#7e9eb3',
+                motivating: '#937db3',
+                satisfying: '#b398a7',
+                refreshing: '#78b375',
+                invigorating: '#b35951'
+            };
+
+            if (!Array.isArray(nectars)) return;
+            for (const nectar of nectars) {
+                const name = nectar.name || '';
+                const value = Number(nectar.value || 0);
+                const projected = Number(nectar.projected || 0);
+                const ring = document.getElementById(`nectar-ring-${name}`);
+                const proj = document.getElementById(`nectar-proj-${name}`);
+                const val = document.getElementById(`nectar-val-${name}`);
+                const plus = document.getElementById(`nectar-plus-${name}`);
+                if (!ring || !proj || !val || !plus) continue;
+
+                const color = colors[name] || '#888';
+                ring.style.stroke = value > 0 ? color : 'none';
+                proj.style.stroke = color;
+                setRingProgress(ring, value, 0);
+                if (projected > 0) {
+                    setRingProgress(proj, projected, value);
+                    proj.style.opacity = '0.6';
+                    proj.style.stroke = color;
+                    plus.textContent = `+${Math.round(projected)}%`;
+                } else {
+                    setRingProgress(proj, 0, 0);
+                    proj.style.opacity = '0';
+                    proj.style.strokeDasharray = '0 999';
+                    proj.style.stroke = 'none';
+                    plus.textContent = '';
+                }
+                val.style.color = color;
+                plus.style.color = color;
+                val.textContent = `${Math.round(value)}%`;
+            }
+        }
+
+        let lastBuffs = null;
+        let buffFilterReady = false;
+        let buffFilterHidden = new Set();
+        const buffFilterOrder = [
+            'blueboost',
+            'redboost',
+            'whiteboost',
+            'haste',
+            'focus',
+            'bombcombo',
+            'balloonaura',
+            'inspire',
+            'reindeerfetch',
+            'honeymark',
+            'pollenmark',
+            'festivemark',
+            'popstar',
+            'melody',
+            'bear',
+            'babylove',
+            'jbshare',
+            'guiding'
+        ];
+        const buffLabelMap = {
+            blueboost: 'Blue Boost',
+            redboost: 'Red Boost',
+            whiteboost: 'White Boost',
+            haste: 'Haste',
+            focus: 'Focus',
+            bombcombo: 'Bomb Combo',
+            balloonaura: 'Balloon',
+            inspire: 'Inspire',
+            reindeerfetch: 'Antlers',
+            honeymark: 'Honey Mark',
+            pollenmark: 'Pollen Mark',
+            festivemark: 'Festive Mark',
+            popstar: 'Pop Star',
+            melody: 'Melody',
+            bear: 'Bear Morph',
+            babylove: 'Baby Love',
+            jbshare: 'Beans',
+            guiding: 'Guiding Star'
+        };
+
+        function applyBuffFilter() {
+            const items = document.querySelectorAll('.buff-item[data-buff]');
+            for (const item of items) {
+                const name = item.dataset.buff;
+                item.classList.toggle('buff-hidden', buffFilterHidden.has(name));
+            }
+            updateBuffLayout();
+        }
+
+        function saveBuffFilter() {
+            try {
+                localStorage.setItem('statMonitorHiddenBuffs', JSON.stringify(Array.from(buffFilterHidden)));
+            } catch (err) {}
+        }
+
+        function initBuffFilter() {
+            if (buffFilterReady) return;
+            const panel = document.getElementById('buff-filter-panel');
+            const button = document.getElementById('buff-filter-btn');
+            if (!panel || !button) return;
+
+            buffFilterReady = true;
+            try {
+                const saved = JSON.parse(localStorage.getItem('statMonitorHiddenBuffs') || '[]');
+                if (Array.isArray(saved)) buffFilterHidden = new Set(saved);
+            } catch (err) {}
+
+            panel.innerHTML = '';
+            for (const name of buffFilterOrder) {
+                const itemEl = document.querySelector(`.buff-item[data-buff="${name}"]`);
+                if (!itemEl) continue;
+
+                const entry = document.createElement('label');
+                entry.className = 'buffs-filter-item';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = !buffFilterHidden.has(name);
+                const text = document.createElement('span');
+                text.textContent = buffLabelMap[name] || name;
+
+                checkbox.addEventListener('change', () => {
+                    if (checkbox.checked) {
+                        buffFilterHidden.delete(name);
+                    } else {
+                        buffFilterHidden.add(name);
+                    }
+                    applyBuffFilter();
+                    saveBuffFilter();
+                });
+
+                entry.appendChild(checkbox);
+                entry.appendChild(text);
+                panel.appendChild(entry);
+            }
+
+            applyBuffFilter();
+            updateBuffLayout();
+
+            button.addEventListener('click', (event) => {
+                event.stopPropagation();
+                panel.classList.toggle('open');
+            });
+            panel.addEventListener('click', (event) => {
+                event.stopPropagation();
+            });
+            document.addEventListener('click', () => {
+                if (!panel.classList.contains('open')) return;
+                panel.classList.remove('open');
+            });
+        }
+
+        function updateBuffs(buffs) {
+            if (!Array.isArray(buffs)) return;
+            const icons = window.BUFF_ICON_SOURCES || {};
+            const singleStack = new Set(['bear', 'babylove', 'jbshare', 'guiding', 'popstar', 'melody', 'honeymark', 'pollenmark', 'festivemark']);
+            for (const [name, iconPath] of Object.entries(icons)) {
+                const iconEl = document.getElementById(`buff-icon-${name}`);
+                if (!iconEl || !iconPath) continue;
+                if (!iconEl.src) iconEl.src = iconPath;
+                const wrapper = iconEl.closest('.buff-icon-wrap');
+                if (wrapper) wrapper.style.setProperty('--buff-icon', `url('${iconPath}')`);
+                const valEl = document.getElementById(`buff-val-${name}`);
+                if (valEl && singleStack.has(name)) {
+                    valEl.textContent = '';
+                    valEl.style.display = 'none';
+                }
+            }
+            const hasAnyNonZero = buffs.some((buff) => Number(buff.value || 0) > 0);
+            if (!hasAnyNonZero && Array.isArray(lastBuffs)) {
+                const hadAnyNonZero = lastBuffs.some((buff) => Number(buff.value || 0) > 0);
+                if (hadAnyNonZero) return;
+            }
+
+            for (const buff of buffs) {
+                const name = buff.name;
+                const valEl = document.getElementById(`buff-val-${name}`);
+                const iconEl = document.getElementById(`buff-icon-${name}`);
+                if (!valEl || !iconEl) continue;
+
+                const value = Number(buff.value || 0);
+                const isSingle = singleStack.has(name);
+                if (isSingle) {
+                    valEl.textContent = '';
+                    valEl.style.display = 'none';
+                } else {
+                    valEl.textContent = `x${value}`;
+                    valEl.style.display = 'block';
+                }
+                const iconPath = icons[name];
+                if (iconPath) iconEl.src = iconPath;
+                const wrapper = iconEl.closest('.buff-icon-wrap');
+                if (wrapper) {
+                    const fill = isSingle ? (value > 0 ? 100 : 0) : Math.max(0, Math.min(10, value)) * 10;
+                    wrapper.style.setProperty('--buff-icon', `url('${iconPath || ''}')`);
+                    wrapper.style.setProperty('--buff-fill', `${fill}%`);
+                }
+            }
+
+            lastBuffs = buffs.map((buff) => ({ name: buff.name, value: Number(buff.value || 0) }));
+        }
+
+        function updatePlanters(planters) {
+            for (let i = 1; i <= 3; i++) {
+                const data = Array.isArray(planters) ? planters[i - 1] : null;
+                const slot = document.getElementById(`planter-slot-${i}`);
+                const fieldEl = document.getElementById(`planter-field-${i}`);
+                const timerEl = document.getElementById(`planter-timer-${i}`);
+                const planterIcon = document.getElementById(`planter-icon-${i}`);
+                const nectarInline = document.getElementById(`nectar-inline-${i}`);
+
+                if (!data || !data.name || data.name === 'None') {
+                    slot.classList.add('empty');
+                    fieldEl.textContent = 'Empty';
+                    timerEl.textContent = '--';
+                    planterIcon.style.display = 'none';
+                    nectarInline.style.display = 'none';
+                    continue;
+                }
+
+                slot.classList.remove('empty');
+                const fieldName = data.field || data.fieldName || data.planterField || data.location || '';
+                fieldEl.textContent = fieldName && fieldName !== 'None' ? fieldName : '--';
+                planterIcon.src = getPlanterImage(data.name);
+                planterIcon.style.display = 'block';
+
+                if (data.nectar && data.nectar !== 'None') {
+                    nectarInline.src = getNectarImage(data.nectar);
+                    nectarInline.style.display = 'block';
+                } else {
+                    nectarInline.style.display = 'none';
+                }
+
+                const harvestTime = Number(data.harvestTime || 0);
+                if (!harvestTime) {
+                    timerEl.textContent = '--';
+                } else {
+                    const remaining = harvestTime - Math.floor(Date.now() / 1000);
+                    timerEl.textContent = remaining <= 0 ? 'Ready' : formatTimer(remaining);
+                }
+            }
+        }
+
+        function updateHeaderLayout() {
+            const header = document.querySelector('.stats-header');
+            const plantersBox = document.querySelector('.planters-box');
+            const buffsGrid = document.querySelector('.buffs-grid');
+            if (!header || !plantersBox || !buffsGrid) return;
+            const headerWidth = header.clientWidth;
+            const count = Number(getComputedStyle(buffsGrid).getPropertyValue('--buff-count')) || 1;
+            const gap = 16;
+            const honeyMin = 140;
+            const backpackMin = 140;
+            const plantersMin = 420;
+            const nectarMin = 320;
+            const buffsMinSize = 20;
+            const buffsMinWidth = Math.max(0, count * buffsMinSize + (count - 1) * 2);
+            const requiredAll = honeyMin + backpackMin + buffsMinWidth + plantersMin + nectarMin + gap * 4;
+            const forceSecondRow = headerWidth < requiredAll;
+            header.classList.toggle('force-second-row', forceSecondRow);
+            if (forceSecondRow) {
+                const secondRowWidth = headerWidth - gap;
+                if (plantersMin + nectarMin > secondRowWidth) {
+                    plantersBox.style.minWidth = `${Math.max(300, secondRowWidth - nectarMin)}px`;
+                } else {
+                    plantersBox.style.minWidth = `${plantersMin}px`;
+                }
+            } else {
+                plantersBox.style.minWidth = '';
+            }
+        }
+
+        function updateBuffLayout() {
+            const grid = document.querySelector('.buffs-grid');
+            if (!grid) return;
+            const visible = grid.querySelectorAll('.buff-item:not(.buff-hidden)').length;
+            const count = visible > 0 ? visible : 1;
+            grid.style.setProperty('--buff-count', count);
+            const gap = parseFloat(getComputedStyle(grid).getPropertyValue('--buff-gap')) || 0;
+            const width = grid.clientWidth;
+            const size = Math.max(20, Math.min(44, (width - gap * (count - 1)) / count));
+            grid.style.setProperty('--buff-size', `${size}px`);
+            updateHeaderLayout();
+        }
+
+        function displayStats() {
+            const honeyEl = document.getElementById('honey-value');
+            const backpackEl = document.getElementById('backpack-value');
+            const backpackText = document.getElementById('backpack-text');
+            const backpackBar = document.getElementById('backpack-bar');
+
+            if (typeof statData !== 'undefined' && statData) {
+                if (statData.honey !== undefined) {
+                    honeyEl.textContent = formatHoney(statData.honey);
+                }
+                if (statData.backpack !== undefined) {
+                    const bp = Math.min(100, Math.max(0, statData.backpack));
+                    const color = getBackpackColor(bp);
+                    backpackText.textContent = bp + '%';
+                    backpackBar.style.width = bp + '%';
+                    backpackBar.style.backgroundColor = color;
+                }
+                initBuffFilter();
+                updateBuffs(statData.buffs);
+                updatePlanters(statData.planters);
+                updateNectars(statData.nectars);
+                updateHeaderLayout();
+                updateBuffLayout();
+            }
+        }
+
+        function reloadStats() {
+            const oldScript = document.getElementById('stats-script');
+            if (oldScript) oldScript.remove();
+
+            const script = document.createElement('script');
+            script.id = 'stats-script';
+            script.src = 'stat_monitor_stats.js?t=' + Date.now();
+            script.onload = displayStats;
+            script.onerror = function() {};
+            document.head.appendChild(script);
+        }
+
+        setInterval(reloadMessages, 1000);
+        setInterval(reloadStats, 1000);
+        window.addEventListener('resize', updateHeaderLayout);
+        reloadMessages();
+        reloadStats();
+    </script>
+</body>
+</html>
