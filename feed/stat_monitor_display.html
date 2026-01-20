@@ -58,6 +58,7 @@
             display: flex;
             flex-direction: column;
             min-width: 0;
+            overflow: hidden;
         }
         .chart-header {
             display: flex;
@@ -85,6 +86,9 @@
             margin: 4px 0 8px;
             width: 100%;
         }
+        .chart-divider.spaced {
+            margin-bottom: 16px;
+        }
         .chart-subtitle {
             font-size: 10px;
             color: #8a8a8a;
@@ -92,6 +96,9 @@
             letter-spacing: 1px;
             margin: 0 0 8px;
             text-align: center;
+        }
+        .chart-box.compact-subtitles .chart-subtitle {
+            display: none;
         }
         .chart-controls {
             display: flex;
@@ -192,11 +199,17 @@
         }
         .chart-canvas-wrap {
             position: relative;
-            flex: 1 1 auto;
-            min-height: 240px;
+            flex: 1 1 0;
+            min-height: 70px;
+            max-height: 220px;
             background: #201E20;
             border-radius: 8px;
             overflow: hidden;
+        }
+        .chart-canvas-wrap-large {
+            flex-grow: 4.5;
+            min-height: 280px;
+            max-height: 680px;
         }
         .chart-canvas {
             width: 100%;
@@ -970,36 +983,17 @@
             </div>
         </div>
         <div class="chart-box">
-            <div class="chart-header">
-                <div class="chart-title">Graphs</div>
-                <div class="chart-controls">
-                    <div class="control-group">
-                        <div class="control-icon" title="Zoom out">
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <circle cx="11" cy="11" r="6"></circle>
-                                <path d="M16 16l4 4"></path>
-                                <path d="M8 11h6"></path>
-                            </svg>
-                        </div>
-                        <div class="control-wrap">
-                            <div class="control-ticks" id="zoom-ticks"></div>
-                            <input class="control-input" id="zoom-range" type="range" min="0" max="0" step="1" value="0">
-                        </div>
-                        <div class="control-icon" title="Zoom in">
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <circle cx="11" cy="11" r="6"></circle>
-                                <path d="M16 16l4 4"></path>
-                                <path d="M11 8v6"></path>
-                                <path d="M8 11h6"></path>
-                            </svg>
-                        </div>
-                    </div>
-                </div>
+            <div class="chart-subtitle">Honey / Sec</div>
+            <div class="chart-canvas-wrap">
+                <canvas class="chart-canvas" id="honey-chart"></canvas>
             </div>
-            <div class="chart-divider"></div>
             <div class="chart-subtitle">Pollen</div>
             <div class="chart-canvas-wrap">
                 <canvas class="chart-canvas" id="pollen-chart"></canvas>
+            </div>
+            <div class="chart-subtitle">Buff Uptime</div>
+            <div class="chart-canvas-wrap chart-canvas-wrap-large">
+                <canvas class="chart-canvas" id="buff-uptime-chart"></canvas>
             </div>
         </div>
     </div>
@@ -1043,6 +1037,7 @@
                 `;
             }
             container.innerHTML = html;
+            updateActivityTimeline();
         }
 
         function reloadMessages() {
@@ -1103,6 +1098,74 @@
                 b = Math.round(59 + (54 - 59) * t);
             }
             return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function activityFromMessage(msg) {
+            if (!msg) return 'other';
+            const color = Number(msg.color);
+            if (color === 9755247) return 'gather';
+            if (color === 8871681) return 'convert';
+            const text = String(msg.message || '').toLowerCase();
+            if (text.includes('gather')) return 'gather';
+            if (text.includes('convert')) return 'convert';
+            return 'other';
+        }
+
+        function getActivityColor(activity) {
+            if (activity === 'gather') return '#a6ff7c';
+            if (activity === 'convert') return '#feca40';
+            return '#859aad';
+        }
+
+        function getBuffIconImage(name) {
+            if (buffIconImages.has(name)) return buffIconImages.get(name);
+            if (!window.BUFF_ICON_SOURCES || !window.BUFF_ICON_SOURCES[name]) return null;
+            const img = new Image();
+            img.src = window.BUFF_ICON_SOURCES[name];
+            buffIconImages.set(name, img);
+            return img;
+        }
+
+        function scheduleChartRender() {
+            if (chartRenderQueued) return;
+            chartRenderQueued = true;
+            requestAnimationFrame(() => {
+                chartRenderQueued = false;
+                drawHoneyChart();
+                drawPollenChart();
+                drawBuffUptimeChart();
+            });
+        }
+
+        function updateActivityTimeline() {
+            if (typeof statMessages === 'undefined' || !Array.isArray(statMessages)) return;
+            const timeline = [];
+            for (const msg of statMessages) {
+                if (!msg || !msg.timestamp) continue;
+                const ts = Date.parse(String(msg.timestamp).replace(' ', 'T'));
+                if (isNaN(ts)) continue;
+                timeline.push({ t: ts, activity: activityFromMessage(msg) });
+            }
+            timeline.sort((a, b) => a.t - b.t);
+            honeyActivityTimeline = timeline;
+            currentActivity = timeline.length ? timeline[timeline.length - 1].activity : currentActivity;
+            applyActivityToHoneySeries();
+        }
+
+        function getActivityAt(timeMs) {
+            if (!honeyActivityTimeline.length) return currentActivity;
+            for (let i = honeyActivityTimeline.length - 1; i >= 0; i--) {
+                if (honeyActivityTimeline[i].t <= timeMs) return honeyActivityTimeline[i].activity;
+            }
+            return honeyActivityTimeline[0].activity;
+        }
+
+        function applyActivityToHoneySeries() {
+            if (!honeySeries.length) return;
+            for (const point of honeySeries) {
+                point.activity = getActivityAt(point.t);
+            }
+            drawHoneyChart();
         }
 
         function normalizeKey(value) {
@@ -1416,6 +1479,42 @@
             }
         }
 
+        function updateChartSubtitleVisibility() {
+            const chartBox = document.querySelector('.chart-box');
+            if (!chartBox) return;
+            const wraps = chartBox.querySelectorAll('.chart-canvas-wrap');
+            let minHeight = Infinity;
+            for (const wrap of wraps) {
+                const height = wrap.clientHeight || 0;
+                if (!height) continue;
+                minHeight = Math.min(minHeight, height);
+            }
+            if (minHeight === Infinity) return;
+            const compactOn = 90;
+            const compactOff = 130;
+            let nextCompact = chartSubtitlesCompact;
+            if (!chartSubtitlesCompact && minHeight < compactOn) nextCompact = true;
+            if (chartSubtitlesCompact && minHeight > compactOff) nextCompact = false;
+            if (nextCompact !== chartSubtitlesCompact) {
+                chartSubtitlesCompact = nextCompact;
+                chartBox.classList.toggle('compact-subtitles', chartSubtitlesCompact);
+                scheduleChartResize();
+            }
+        }
+
+        function scheduleChartResize() {
+            if (chartResizeQueued) return;
+            chartResizeQueued = true;
+            requestAnimationFrame(() => {
+                chartResizeQueued = false;
+                updateHeaderLayout();
+                resizeHoneyCanvas();
+                resizePollenCanvas();
+                resizeBuffUptimeCanvas();
+                updateChartSubtitleVisibility();
+            });
+        }
+
         function updateBuffLayout() {
             const grid = document.querySelector('.buffs-grid');
             if (!grid) return;
@@ -1444,6 +1543,9 @@
                 if (honeyRateEl) {
                     honeyRateEl.textContent = formatRate(statData.honey_rate || 0);
                 }
+                if (statData.honey !== undefined) {
+                    updateHoneyChart(statData.honey);
+                }
                 if (statData.backpack !== undefined) {
                     const bp = Math.min(100, Math.max(0, statData.backpack));
                     const color = getBackpackColor(bp);
@@ -1454,6 +1556,9 @@
                 }
                 if (backpackRateEl) {
                     backpackRateEl.textContent = formatRate(statData.backpack_rate || 0);
+                }
+                if (Array.isArray(statData.buffs)) {
+                    updateBuffUptimeChart(statData.buffs);
                 }
                 initBuffFilter();
                 updateBuffs(statData.buffs);
@@ -1482,6 +1587,7 @@
         let pollenWindowMs = 60 * 60 * 1000;
         const pollenWindowMinMs = 60 * 1000;
         const pollenWindowMaxMs = 6 * 60 * 60 * 1000;
+        const chartLeftPad = 52;
         let pollenViewOffsetMs = 0;
         let pollenPlotWidth = 0;
         let pollenDrag = null;
@@ -1490,6 +1596,60 @@
         let historyRetryTimer = null;
         const pollenStorageKey = 'statMonitorPollenSeries';
         let pollenLastSave = 0;
+        let honeyCanvas = null;
+        let honeyCtx = null;
+        const honeySeries = [];
+        const honeySamples = [];
+        let honeyLastSampleAt = 0;
+        let honeyHistoryLoaded = false;
+        const honeyStorageKey = 'statMonitorHoneyRateSeries';
+        let honeyLastSave = 0;
+        let honeyActivityTimeline = [];
+        let currentActivity = 'other';
+        let buffUptimeCanvas = null;
+        let buffUptimeCtx = null;
+        const buffUptimeSamples = {
+            redboost: [],
+            whiteboost: [],
+            blueboost: [],
+            haste: [],
+            focus: [],
+            bombcombo: [],
+            balloonaura: [],
+            reindeerfetch: [],
+            honeymark: [],
+            pollenmark: [],
+            melody: [],
+            bear: [],
+            babylove: [],
+            jbshare: [],
+            guiding: [],
+            popstar: [],
+            festivemark: []
+        };
+        const buffUptimeLastSampleAt = {
+            redboost: 0,
+            whiteboost: 0,
+            blueboost: 0,
+            haste: 0,
+            focus: 0,
+            bombcombo: 0,
+            balloonaura: 0,
+            reindeerfetch: 0,
+            honeymark: 0,
+            pollenmark: 0,
+            melody: 0,
+            bear: 0,
+            babylove: 0,
+            jbshare: 0,
+            guiding: 0,
+            popstar: 0,
+            festivemark: 0
+        };
+        const buffIconImages = new Map();
+        let chartRenderQueued = false;
+        let chartResizeQueued = false;
+        let chartSubtitlesCompact = false;
 
         const zoomSteps = [
             { label: '6h', ms: 6 * 60 * 60 * 1000 },
@@ -1503,8 +1663,804 @@
             { label: '5m', ms: 5 * 60 * 1000 }
         ];
 
+        function ensureBuffUptimeCanvas() {
+            if (buffUptimeCanvas) return;
+            buffUptimeCanvas = document.getElementById('buff-uptime-chart');
+            if (!buffUptimeCanvas) return;
+            buffUptimeCanvas.addEventListener('wheel', onPollenWheel, { passive: false });
+            buffUptimeCanvas.addEventListener('pointerdown', onPollenDragStart);
+            buffUptimeCanvas.addEventListener('mousedown', onPollenMouseDown);
+            resizeBuffUptimeCanvas();
+        }
+
+        function resizeBuffUptimeCanvas() {
+            if (!buffUptimeCanvas) return;
+            const rect = buffUptimeCanvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const width = Math.max(1, Math.floor(rect.width * dpr));
+            const height = Math.max(1, Math.floor(rect.height * dpr));
+            buffUptimeCanvas.width = width;
+            buffUptimeCanvas.height = height;
+            buffUptimeCtx = buffUptimeCanvas.getContext('2d');
+            buffUptimeCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            drawBuffUptimeChart();
+        }
+
+        function updateBuffUptimeChart(buffs) {
+            ensureBuffUptimeCanvas();
+            if (!buffUptimeCanvas) return;
+            const now = Date.now();
+            const lookup = new Map();
+            for (const buff of buffs) {
+                if (!buff || !buff.name) continue;
+                lookup.set(buff.name, Number(buff.value || 0));
+            }
+            for (const name of ['whiteboost', 'redboost', 'blueboost', 'haste', 'focus', 'bombcombo', 'balloonaura', 'reindeerfetch', 'honeymark', 'pollenmark', 'festivemark', 'popstar', 'melody', 'bear', 'babylove', 'jbshare', 'guiding']) {
+                const lastAt = buffUptimeLastSampleAt[name] || 0;
+                if (now - lastAt >= 1000) {
+                    const value = Math.max(0, lookup.get(name) || 0);
+                    buffUptimeSamples[name].push({ t: now, v: value });
+                    buffUptimeLastSampleAt[name] = now;
+                }
+            }
+            const cutoff = now - pollenWindowMaxMs;
+            for (const name of ['whiteboost', 'redboost', 'blueboost', 'haste', 'focus', 'bombcombo', 'balloonaura', 'reindeerfetch', 'honeymark', 'pollenmark', 'festivemark', 'popstar', 'melody', 'bear', 'babylove', 'jbshare', 'guiding']) {
+                while (buffUptimeSamples[name].length && buffUptimeSamples[name][0].t < cutoff) {
+                    buffUptimeSamples[name].shift();
+                }
+            }
+            drawBuffUptimeChart();
+        }
+
+        function buildBuffPoints(samples, start, viewEnd, plotW, maxValue = 10) {
+            let previous = null;
+            const points = [];
+            for (const sample of samples) {
+                if (sample.t < start) {
+                    previous = sample;
+                    continue;
+                }
+                if (sample.t > viewEnd) break;
+                points.push(sample);
+            }
+            if (previous && points.length) {
+                points.unshift({ t: start, v: previous.v });
+            } else if (previous && points.length === 0) {
+                points.push({ t: start, v: previous.v });
+            }
+            if (points.length) {
+                const last = points[points.length - 1];
+                if (last.t < viewEnd) {
+                    points.push({ t: viewEnd, v: last.v });
+                }
+            }
+            if (points.length < 2) return [];
+            return points.map((point) => ({
+                x: ((point.t - start) / pollenWindowMs) * plotW,
+                y: 1 - Math.min(maxValue, Math.max(0, point.v)) / maxValue
+            }));
+        }
+
+        function computeBuffAverage(samples, start, viewEnd) {
+            if (samples.length < 2) return 0;
+            let total = 0;
+            let duration = 0;
+            let gathered = 0;
+            let gatherDuration = 0;
+            for (let i = 0; i < samples.length - 1; i++) {
+                const a = samples[i];
+                const b = samples[i + 1];
+                const segStart = Math.max(start, a.t);
+                const segEnd = Math.min(viewEnd, b.t);
+                if (segEnd <= segStart) continue;
+                const segDuration = (segEnd - segStart) / 1000;
+                const mid = (segStart + segEnd) / 2;
+                if (getActivityAt(mid) === 'gather') {
+                    gathered += a.v * segDuration;
+                    gatherDuration += segDuration;
+                }
+                total += a.v * segDuration;
+                duration += segDuration;
+            }
+            if (gatherDuration > 0) return gathered / gatherDuration;
+            if (duration > 0) return total / duration;
+            return 0;
+        }
+
+        function drawBuffUptimeChart() {
+            if (!buffUptimeCanvas || !buffUptimeCtx) return;
+            const rect = buffUptimeCanvas.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+            if (width <= 0 || height <= 0) return;
+
+            const ctx = buffUptimeCtx;
+            ctx.clearRect(0, 0, width, height);
+
+            const pad = { top: 10, right: 0, bottom: 36, left: chartLeftPad };
+            const plotH = Math.max(1, height - pad.top - pad.bottom);
+            const plotW = Math.max(1, width - pad.left - pad.right);
+
+            const bgGradient = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
+            bgGradient.addColorStop(0, '#1c1a1b');
+            bgGradient.addColorStop(1, '#141314');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(pad.left, pad.top, width - pad.left, plotH);
+
+            const now = Date.now();
+            const viewEnd = now - pollenViewOffsetMs;
+            const start = viewEnd - pollenWindowMs;
+
+            const halfHourMs = 30 * 60 * 1000;
+            const tenMinMs = 10 * 60 * 1000;
+            const oneMinMs = 60 * 1000;
+            const showMinuteGrid = pollenWindowMs <= 30 * 60 * 1000 && plotH >= 90;
+            const showColumns = true;
+            const showRows = plotH >= 70;
+            const firstMajor = Math.floor(start / halfHourMs) * halfHourMs;
+            const lastMajor = Math.ceil(viewEnd / halfHourMs) * halfHourMs;
+            if (showColumns) {
+                ctx.lineWidth = 1;
+                for (let t = firstMajor; t <= lastMajor; t += halfHourMs) {
+                    const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                    if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                    ctx.strokeStyle = 'rgba(192, 192, 240, 0.45)';
+                    ctx.beginPath();
+                    ctx.moveTo(x, pad.top);
+                    ctx.lineTo(x, pad.top + plotH);
+                    ctx.stroke();
+                }
+                const firstTen = Math.floor(start / tenMinMs) * tenMinMs;
+                const lastTen = Math.ceil(viewEnd / tenMinMs) * tenMinMs;
+                for (let t = firstTen; t <= lastTen; t += tenMinMs) {
+                    if (t % halfHourMs === 0) continue;
+                    const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                    if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                    ctx.strokeStyle = 'rgba(192, 192, 240, 0.3)';
+                    ctx.beginPath();
+                    ctx.moveTo(x, pad.top);
+                    ctx.lineTo(x, pad.top + plotH);
+                    ctx.stroke();
+                }
+                if (showMinuteGrid) {
+                    const firstMin = Math.floor(start / oneMinMs) * oneMinMs;
+                    const lastMin = Math.ceil(viewEnd / oneMinMs) * oneMinMs;
+                    for (let t = firstMin; t <= lastMin; t += oneMinMs) {
+                        if (t % tenMinMs === 0) continue;
+                        const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                        if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                        ctx.strokeStyle = 'rgba(192, 192, 240, 0.12)';
+                        ctx.beginPath();
+                        ctx.moveTo(x, pad.top);
+                        ctx.lineTo(x, pad.top + plotH);
+                        ctx.stroke();
+                    }
+                }
+            }
+            const colors = {
+                whiteboost: '#ffffff',
+                redboost: '#e46156',
+                blueboost: '#56a4e4',
+                haste: '#f0f0f0',
+                focus: '#22ff06',
+                bombcombo: '#4b4b4b',
+                balloonaura: '#fafd38',
+                reindeerfetch: '#cc2c2c',
+                honeymark: '#f2b13f',
+                pollenmark: '#f2d55b',
+                melody: '#b0b0b0',
+                bear: '#c7a26a',
+                babylove: '#8de4f3',
+                jbshare: '#f9ccff',
+                guiding: '#8cc7ff',
+                popstar: '#f5a3ff',
+                festivemark: '#ffd86b'
+            };
+            const buffBands = [
+                { type: 'boost', names: ['whiteboost', 'redboost', 'blueboost'] },
+                { type: 'single', name: 'haste' },
+                { type: 'single', name: 'focus' },
+                { type: 'single', name: 'bombcombo' },
+                { type: 'single', name: 'balloonaura' },
+                { type: 'single', name: 'reindeerfetch' },
+                { type: 'binary', name: 'honeymark' },
+                { type: 'binary', name: 'pollenmark' },
+                { type: 'binary', name: 'festivemark' },
+                { type: 'binary', name: 'popstar' },
+                { type: 'binary', name: 'melody' },
+                { type: 'binary', name: 'bear' },
+                { type: 'binary', name: 'babylove' },
+                { type: 'binary', name: 'jbshare' },
+                { type: 'binary', name: 'guiding' }
+            ];
+            const separatorThickness = 1;
+            const bandCount = buffBands.length;
+            const availableH = Math.max(1, plotH - separatorThickness * (bandCount - 1));
+            const bandH = availableH / bandCount;
+            const iconSize = Math.max(2, Math.min(24, Math.round(Math.min(plotH * 0.13, bandH * 0.6))));
+            const textSize = Math.max(5, Math.min(10, Math.round(iconSize * 0.45)));
+            const lineHeight = Math.max(8, Math.round(textSize * 1.1));
+            const iconGap = 6;
+            const leftAreaWidth = pad.left;
+            const comboBox = iconSize;
+            const comboLeft = Math.max(4, Math.round((leftAreaWidth - comboBox) / 2));
+            const textX = Math.round(leftAreaWidth / 2);
+
+            for (let i = 0; i < bandCount; i++) {
+                const bandTop = pad.top + i * (bandH + separatorThickness);
+                const y = bandTop + bandH / 2;
+                ctx.strokeStyle = 'rgba(192, 192, 240, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y);
+                ctx.lineTo(pad.left + plotW, y);
+                ctx.stroke();
+            }
+
+            for (let i = 1; i < bandCount; i++) {
+                const y = pad.top + i * bandH + (i - 1) * separatorThickness + 0.5;
+                ctx.strokeStyle = i === 1 ? 'rgba(192, 192, 240, 0.35)' : 'rgba(192, 192, 240, 0.2)';
+                ctx.lineWidth = separatorThickness;
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y);
+                ctx.lineTo(pad.left + plotW, y);
+                ctx.stroke();
+            }
+
+            for (let i = 0; i < buffBands.length; i++) {
+                const band = buffBands[i];
+                const bandTop = pad.top + i * (bandH + separatorThickness);
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(pad.left, bandTop, width - pad.left, bandH);
+                ctx.clip();
+
+                if (band.type === 'boost') {
+                    for (const name of band.names) {
+                        const samples = buffUptimeSamples[name] || [];
+                        const points = buildBuffPoints(samples, start, viewEnd, plotW);
+                        if (points.length < 2) continue;
+                        const color = colors[name];
+
+                        ctx.beginPath();
+                        for (let j = 0; j < points.length; j++) {
+                            const point = points[j];
+                            const x = pad.left + point.x;
+                            const y = bandTop + point.y * bandH;
+                            if (j === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        const lastX = pad.left + points[points.length - 1].x;
+                        const firstX = pad.left + points[0].x;
+                        ctx.lineTo(lastX, bandTop + bandH);
+                        ctx.lineTo(firstX, bandTop + bandH);
+                        ctx.closePath();
+                        ctx.save();
+                        ctx.globalAlpha = 0.2;
+                        ctx.fillStyle = color;
+                        ctx.fill();
+                        ctx.restore();
+
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = color;
+                        ctx.beginPath();
+                        for (let j = 0; j < points.length; j++) {
+                            const point = points[j];
+                            const x = pad.left + point.x;
+                            const y = bandTop + point.y * bandH;
+                            if (j === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                    }
+                } else if (band.type === 'binary') {
+                    const name = band.name;
+                    const samples = buffUptimeSamples[name] || [];
+                    if (samples.length) {
+                        let previous = null;
+                        for (const sample of samples) {
+                            if (sample.t < start) {
+                                previous = sample;
+                                continue;
+                            }
+                            const segStart = Math.max(start, previous ? previous.t : start);
+                            const segEnd = Math.min(viewEnd, sample.t);
+                            if (segEnd > segStart && previous && previous.v > 0) {
+                                const x0 = pad.left + ((segStart - start) / pollenWindowMs) * plotW;
+                                const x1 = pad.left + ((segEnd - start) / pollenWindowMs) * plotW;
+                                ctx.save();
+                                ctx.globalAlpha = 0.35;
+                                ctx.fillStyle = colors[name] || '#f0f0f0';
+                                ctx.fillRect(x0, bandTop, x1 - x0, bandH);
+                                ctx.restore();
+                            }
+                            previous = sample;
+                            if (sample.t > viewEnd) break;
+                        }
+                        if (previous && previous.t < viewEnd && previous.v > 0) {
+                            const segStart = Math.max(start, previous.t);
+                            const x0 = pad.left + ((segStart - start) / pollenWindowMs) * plotW;
+                            const x1 = pad.left + plotW;
+                            ctx.save();
+                            ctx.globalAlpha = 0.35;
+                            ctx.fillStyle = colors[name] || '#f0f0f0';
+                            ctx.fillRect(x0, bandTop, x1 - x0, bandH);
+                            ctx.restore();
+                        }
+                    }
+                } else {
+                    const name = band.name;
+                    const samples = buffUptimeSamples[name] || [];
+                    const points = buildBuffPoints(samples, start, viewEnd, plotW);
+                    if (points.length >= 2) {
+                        const color = colors[name] || '#f0f0f0';
+                        ctx.beginPath();
+                        for (let j = 0; j < points.length; j++) {
+                            const point = points[j];
+                            const x = pad.left + point.x;
+                            const y = bandTop + point.y * bandH;
+                            if (j === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        const lastX = pad.left + points[points.length - 1].x;
+                        const firstX = pad.left + points[0].x;
+                        ctx.lineTo(lastX, bandTop + bandH);
+                        ctx.lineTo(firstX, bandTop + bandH);
+                        ctx.closePath();
+                        ctx.save();
+                        ctx.globalAlpha = 0.2;
+                        ctx.fillStyle = color;
+                        ctx.fill();
+                        ctx.restore();
+
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = color;
+                        ctx.beginPath();
+                        for (let j = 0; j < points.length; j++) {
+                            const point = points[j];
+                            const x = pad.left + point.x;
+                            const y = bandTop + point.y * bandH;
+                            if (j === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                    }
+                }
+
+                ctx.restore();
+            }
+
+            ctx.fillStyle = '#8a8a8a';
+            ctx.font = `${textSize}px Segoe UI`;
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'center';
+
+            const comboIcon = getBuffIconImage('boost');
+            const boostBandTop = pad.top;
+            const boostBlockHeight = iconSize;
+            let boostBlockTop = Math.round(boostBandTop + (bandH - boostBlockHeight) / 2);
+            const boostMinY = boostBandTop + 2;
+            const boostMaxY = boostBandTop + bandH - boostBlockHeight - 2;
+            if (boostBlockTop < boostMinY) boostBlockTop = boostMinY;
+            if (boostBlockTop > boostMaxY) boostBlockTop = boostMaxY;
+            const boostIconY = boostBlockTop;
+            if (comboIcon && comboIcon.complete) {
+                ctx.drawImage(comboIcon, comboLeft, boostIconY, iconSize, iconSize);
+            }
+            for (const name of ['redboost', 'whiteboost', 'blueboost']) {
+                void name;
+            }
+
+            for (let i = 1; i < buffBands.length; i++) {
+                const band = buffBands[i];
+                if (band.type === 'boost') continue;
+                const bandTop = pad.top + i * (bandH + separatorThickness);
+                const bandBlockHeight = iconSize;
+                let bandBlockTop = Math.round(bandTop + (bandH - bandBlockHeight) / 2);
+                const bandMinY = bandTop + 2;
+                const bandMaxY = bandTop + bandH - bandBlockHeight - 2;
+                if (bandBlockTop < bandMinY) bandBlockTop = bandMinY;
+                if (bandBlockTop > bandMaxY) bandBlockTop = bandMaxY;
+                const icon = getBuffIconImage(band.name);
+                if (icon && icon.complete) {
+                    ctx.drawImage(icon, comboLeft, bandBlockTop, iconSize, iconSize);
+                }
+                if (band.type !== 'binary') {
+                    ctx.fillStyle = colors[band.name] || '#f0f0f0';
+                }
+            }
+
+            const showTimeAxis = plotH >= 110 && plotW >= 220;
+            if (showTimeAxis) {
+                const tickLabels = [];
+                const firstLabel = Math.floor(start / tenMinMs) * tenMinMs;
+                const lastLabel = Math.ceil(viewEnd / tenMinMs) * tenMinMs;
+                for (let t = firstLabel; t <= lastLabel; t += tenMinMs) {
+                    const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                    if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                    tickLabels.push({ t, x });
+                }
+                const tickBaseY = pad.top + plotH + 1;
+                ctx.fillStyle = '#8a8a8a';
+                ctx.font = '11px Segoe UI';
+                ctx.textBaseline = 'top';
+                ctx.textAlign = 'center';
+                ctx.lineWidth = 2;
+                for (const label of tickLabels) {
+                    const isHalfHour = label.t % halfHourMs === 0;
+                    const isTenMin = label.t % tenMinMs === 0;
+                    const isMinute = label.t % oneMinMs === 0;
+                    const scale = Math.max(0.5, Math.min(1, plotH / 140));
+                    const tickHeight = Math.max(4, Math.round((isHalfHour ? 14 : isTenMin ? 11 : 7) * scale));
+                    const alignedX = Math.round(label.x) + 0.5;
+                    const tickTop = Math.round(tickBaseY) + 0.5;
+                    const tickBottom = Math.round(tickBaseY + tickHeight) + 0.5;
+                    ctx.strokeStyle = isHalfHour ? 'rgba(192, 192, 240, 0.65)' : isTenMin ? 'rgba(192, 192, 240, 0.45)' : isMinute ? 'rgba(192, 192, 240, 0.3)' : 'rgba(192, 192, 240, 0.3)';
+                    ctx.beginPath();
+                    ctx.moveTo(alignedX, tickTop);
+                    ctx.lineTo(alignedX, tickBottom);
+                    ctx.stroke();
+                    ctx.fillText(formatClockTime(label.t), Math.round(label.x), tickBaseY + 18);
+                }
+                const minorStart = Math.floor(start / oneMinMs) * oneMinMs;
+                const minorEnd = Math.ceil(viewEnd / oneMinMs) * oneMinMs;
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(192, 192, 240, 0.3)';
+                for (let t = minorStart; t <= minorEnd; t += oneMinMs) {
+                    if (t % tenMinMs === 0) continue;
+                    const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                    if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                    const alignedX = Math.round(x) + 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(alignedX, tickBaseY);
+                    const scale = Math.max(0.5, Math.min(1, plotH / 140));
+                    ctx.lineTo(alignedX, tickBaseY + Math.max(4, Math.round(7 * scale)));
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function ensureHoneyCanvas() {
+            if (honeyCanvas) return;
+            honeyCanvas = document.getElementById('honey-chart');
+            if (!honeyCanvas) return;
+            honeyCanvas.addEventListener('wheel', onPollenWheel, { passive: false });
+            honeyCanvas.addEventListener('pointerdown', onPollenDragStart);
+            honeyCanvas.addEventListener('mousedown', onPollenMouseDown);
+            resizeHoneyCanvas();
+        }
+
+        function resizeHoneyCanvas() {
+            if (!honeyCanvas) return;
+            const rect = honeyCanvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const width = Math.max(1, Math.floor(rect.width * dpr));
+            const height = Math.max(1, Math.floor(rect.height * dpr));
+            honeyCanvas.width = width;
+            honeyCanvas.height = height;
+            honeyCtx = honeyCanvas.getContext('2d');
+            honeyCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            drawHoneyChart();
+        }
+
+        function updateHoneyChart(value) {
+            ensureHoneyCanvas();
+            if (!honeyCanvas) return;
+            const num = Number(value);
+            if (!isNaN(num)) {
+                const now = Date.now();
+                if (!honeyLastSampleAt || now - honeyLastSampleAt >= 1000) {
+                    honeySamples.push({ t: now, v: Math.max(0, num) });
+                    honeyLastSampleAt = now;
+                }
+            }
+            rebuildHoneySeries();
+            drawHoneyChart();
+        }
+
+        function rebuildHoneySeries() {
+            const cutoff = Date.now() - pollenWindowMaxMs;
+            while (honeySamples.length && honeySamples[0].t < cutoff) {
+                honeySamples.shift();
+            }
+            if (honeySamples.length < 2) {
+                honeySeries.length = 0;
+                return;
+            }
+
+            const minuteMap = new Map();
+            for (const sample of honeySamples) {
+                const minuteStart = Math.floor(sample.t / 60000) * 60000;
+                minuteMap.set(minuteStart, sample.v);
+            }
+
+            const minuteKeys = Array.from(minuteMap.keys()).sort((a, b) => a - b);
+            const filled = new Map();
+            for (let i = 0; i < minuteKeys.length; i++) {
+                const t1 = minuteKeys[i];
+                const v1 = minuteMap.get(t1);
+                filled.set(t1, v1);
+                const t2 = minuteKeys[i + 1];
+                if (!t2) continue;
+                const v2 = minuteMap.get(t2);
+                const stepCount = Math.round((t2 - t1) / 60000);
+                if (stepCount > 1) {
+                    for (let j = 1; j < stepCount; j++) {
+                        const tFill = t1 + j * 60000;
+                        const ratio = j / stepCount;
+                        filled.set(tFill, v1 + (v2 - v1) * ratio);
+                    }
+                }
+            }
+
+            const filledKeys = Array.from(filled.keys()).sort((a, b) => a - b);
+            honeySeries.length = 0;
+            for (let i = 0; i < filledKeys.length - 1; i++) {
+                const t1 = filledKeys[i];
+                const t2 = filledKeys[i + 1];
+                const v1 = filled.get(t1);
+                const v2 = filled.get(t2);
+                const seconds = Math.max(1, (t2 - t1) / 1000);
+                const rate = Math.max(0, (v2 - v1) / seconds);
+                honeySeries.push({ t: t1, v: rate, activity: getActivityAt(t1) });
+            }
+
+            const lastKey = filledKeys[filledKeys.length - 1];
+            if (lastKey !== undefined && honeySeries.length) {
+                const lastRate = honeySeries[honeySeries.length - 1].v;
+                honeySeries.push({ t: lastKey, v: lastRate, activity: getActivityAt(lastKey) });
+            }
+        }
+
+        function drawHoneyChart() {
+            if (!honeyCanvas || !honeyCtx) return;
+            const rect = honeyCanvas.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+            if (width <= 0 || height <= 0) return;
+
+            const ctx = honeyCtx;
+            ctx.clearRect(0, 0, width, height);
+
+            const showTimeAxis = height >= 90 && width >= 180;
+            const pad = { top: 12, right: 0, bottom: showTimeAxis ? 36 : 12, left: chartLeftPad };
+            const plotW = Math.max(1, width - pad.left - pad.right);
+            const plotH = Math.max(1, height - pad.top - pad.bottom);
+
+            const bgGradient = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
+            bgGradient.addColorStop(0, '#1c1a1b');
+            bgGradient.addColorStop(1, '#141314');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(pad.left, pad.top, width - pad.left, plotH);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(pad.left, pad.top, width - pad.left, plotH);
+            ctx.clip();
+
+            const now = Date.now();
+            const viewEnd = now - pollenViewOffsetMs;
+            const start = viewEnd - pollenWindowMs;
+
+            const halfHourMs = 30 * 60 * 1000;
+            const tenMinMs = 10 * 60 * 1000;
+            const oneMinMs = 60 * 1000;
+            const showMinuteGrid = pollenWindowMs <= 30 * 60 * 1000;
+            const firstMajor = Math.floor(start / halfHourMs) * halfHourMs;
+            const lastMajor = Math.ceil(viewEnd / halfHourMs) * halfHourMs;
+            ctx.lineWidth = 1;
+            for (let t = firstMajor; t <= lastMajor; t += halfHourMs) {
+                const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                ctx.strokeStyle = 'rgba(192, 192, 240, 0.45)';
+                ctx.beginPath();
+                ctx.moveTo(x, pad.top);
+                ctx.lineTo(x, pad.top + plotH);
+                ctx.stroke();
+            }
+            const firstTen = Math.floor(start / tenMinMs) * tenMinMs;
+            const lastTen = Math.ceil(viewEnd / tenMinMs) * tenMinMs;
+            for (let t = firstTen; t <= lastTen; t += tenMinMs) {
+                if (t % halfHourMs === 0) continue;
+                const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                ctx.strokeStyle = 'rgba(192, 192, 240, 0.3)';
+                ctx.beginPath();
+                ctx.moveTo(x, pad.top);
+                ctx.lineTo(x, pad.top + plotH);
+                ctx.stroke();
+            }
+            if (showMinuteGrid) {
+                const firstMin = Math.floor(start / oneMinMs) * oneMinMs;
+                const lastMin = Math.ceil(viewEnd / oneMinMs) * oneMinMs;
+                for (let t = firstMin; t <= lastMin; t += oneMinMs) {
+                    if (t % tenMinMs === 0) continue;
+                    const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                    if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                    ctx.strokeStyle = 'rgba(192, 192, 240, 0.12)';
+                    ctx.beginPath();
+                    ctx.moveTo(x, pad.top);
+                    ctx.lineTo(x, pad.top + plotH);
+                    ctx.stroke();
+                }
+            }
+
+            if (plotH >= 70) {
+                for (let i = 1; i <= 3; i++) {
+                    const y = pad.top + (plotH * i) / 4;
+                    ctx.strokeStyle = 'rgba(192, 192, 240, 0.2)';
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                }
+            } else {
+                const y = pad.top + plotH / 2;
+                ctx.strokeStyle = 'rgba(192, 192, 240, 0.2)';
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            let previous = null;
+            const points = [];
+            for (const point of honeySeries) {
+                if (point.t < start) {
+                    previous = point;
+                    continue;
+                }
+                if (point.t > viewEnd) break;
+                points.push(point);
+            }
+            if (previous && points.length) {
+                points.unshift({ t: start, v: previous.v, activity: previous.activity });
+            } else if (previous && points.length === 0) {
+                points.push({ t: start, v: previous.v, activity: previous.activity });
+            }
+            if (points.length) {
+                const last = points[points.length - 1];
+                if (last.t < viewEnd) {
+                    points.push({ t: viewEnd, v: last.v, activity: last.activity });
+                }
+            }
+
+            let maxValue = 0;
+            for (const point of points) {
+                if (point.v > maxValue) maxValue = point.v;
+            }
+            if (maxValue <= 0) maxValue = 1;
+
+            if (points.length > 1) {
+                const drawSegment = (segment, activity) => {
+                    if (segment.length < 2) return;
+                    const color = getActivityColor(activity);
+                    const firstPoint = segment[0];
+                    const lastPoint = segment[segment.length - 1];
+                    const firstX = pad.left + ((firstPoint.t - start) / pollenWindowMs) * plotW;
+                    const lastX = pad.left + ((lastPoint.t - start) / pollenWindowMs) * plotW;
+
+                    ctx.save();
+                    ctx.beginPath();
+                    for (let i = 0; i < segment.length; i++) {
+                        const point = segment[i];
+                        const x = pad.left + ((point.t - start) / pollenWindowMs) * plotW;
+                        const y = pad.top + (1 - point.v / maxValue) * plotH;
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.lineTo(lastX, pad.top + plotH);
+                    ctx.lineTo(firstX, pad.top + plotH);
+                    ctx.closePath();
+                    ctx.globalAlpha = 0.2;
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                    ctx.restore();
+
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = color;
+                    ctx.beginPath();
+                    for (let i = 0; i < segment.length; i++) {
+                        const point = segment[i];
+                        const x = pad.left + ((point.t - start) / pollenWindowMs) * plotW;
+                        const y = pad.top + (1 - point.v / maxValue) * plotH;
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                };
+
+                let segment = [];
+                let active = points[0].activity || 'other';
+                for (const point of points) {
+                    const activity = point.activity || 'other';
+                    if (activity !== active) {
+                        drawSegment(segment, active);
+                        segment = segment.length ? [segment[segment.length - 1], point] : [point];
+                        active = activity;
+                        continue;
+                    }
+                    segment.push(point);
+                }
+                drawSegment(segment, active);
+            } else {
+                ctx.fillStyle = '#666';
+                ctx.font = '11px Segoe UI';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Waiting for honey...', pad.left + plotW / 2, pad.top + plotH / 2);
+            }
+
+            ctx.restore();
+
+            ctx.fillStyle = '#8a8a8a';
+            ctx.font = '11px Segoe UI';
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'right';
+            if (plotH >= 70) {
+                for (let i = 0; i <= 4; i++) {
+                    const value = maxValue - (maxValue * i) / 4;
+                    const y = pad.top + (plotH * i) / 4;
+                    ctx.fillText(formatHoney(value), pad.left - 6, y);
+                }
+            } else {
+                ctx.fillText(formatHoney(maxValue), pad.left - 6, pad.top);
+                ctx.fillText(formatHoney(0), pad.left - 6, pad.top + plotH);
+            }
+
+            if (showTimeAxis) {
+                const tickLabels = [];
+                const firstLabel = Math.floor(start / tenMinMs) * tenMinMs;
+                const lastLabel = Math.ceil(viewEnd / tenMinMs) * tenMinMs;
+                for (let t = firstLabel; t <= lastLabel; t += tenMinMs) {
+                    const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                    if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                    tickLabels.push({ t, x });
+                }
+                const tickBaseY = pad.top + plotH + 1;
+                ctx.fillStyle = '#8a8a8a';
+                ctx.font = '11px Segoe UI';
+                ctx.textBaseline = 'top';
+                ctx.textAlign = 'center';
+                ctx.lineWidth = 2;
+                for (const label of tickLabels) {
+                    const isHalfHour = label.t % halfHourMs === 0;
+                    const isTenMin = label.t % tenMinMs === 0;
+                    const isMinute = label.t % oneMinMs === 0;
+                    const scale = Math.max(0.5, Math.min(1, plotH / 140));
+                    const tickHeight = Math.max(4, Math.round((isHalfHour ? 14 : isTenMin ? 11 : 7) * scale));
+                    const alignedX = Math.round(label.x) + 0.5;
+                    const tickTop = Math.round(tickBaseY) + 0.5;
+                    const tickBottom = Math.round(tickBaseY + tickHeight) + 0.5;
+                    ctx.strokeStyle = isHalfHour ? 'rgba(192, 192, 240, 0.65)' : isTenMin ? 'rgba(192, 192, 240, 0.45)' : isMinute ? 'rgba(192, 192, 240, 0.3)' : 'rgba(192, 192, 240, 0.3)';
+                    ctx.beginPath();
+                    ctx.moveTo(alignedX, tickTop);
+                    ctx.lineTo(alignedX, tickBottom);
+                    ctx.stroke();
+                    ctx.fillText(formatClockTime(label.t), Math.round(label.x), tickBaseY + 18);
+                }
+                const minorStart = Math.floor(start / oneMinMs) * oneMinMs;
+                const minorEnd = Math.ceil(viewEnd / oneMinMs) * oneMinMs;
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(192, 192, 240, 0.3)';
+                for (let t = minorStart; t <= minorEnd; t += oneMinMs) {
+                    if (t % tenMinMs === 0) continue;
+                    const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                    if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                    const alignedX = Math.round(x) + 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(alignedX, tickBaseY);
+                    const scale = Math.max(0.5, Math.min(1, plotH / 140));
+                    ctx.lineTo(alignedX, tickBaseY + Math.max(4, Math.round(7 * scale)));
+                    ctx.stroke();
+                }
+            }
+        }
+
         function ensurePollenCanvas() {
             if (pollenCanvas) return;
+            ensureHoneyCanvas();
+            ensureBuffUptimeCanvas();
             pollenCanvas = document.getElementById('pollen-chart');
             if (!pollenCanvas) return;
             pollenCanvas.addEventListener('wheel', onPollenWheel, { passive: false });
@@ -1561,7 +2517,8 @@
             const ctx = pollenCtx;
             ctx.clearRect(0, 0, width, height);
 
-            const pad = { top: 12, right: 0, bottom: 36, left: 34 };
+            const showTimeAxis = height >= 90 && width >= 180;
+            const pad = { top: 12, right: 0, bottom: showTimeAxis ? 36 : 12, left: chartLeftPad };
             const plotW = Math.max(1, width - pad.left - pad.right);
             const plotH = Math.max(1, height - pad.top - pad.bottom);
 
@@ -1633,16 +2590,17 @@
                     ctx.stroke();
                 }
             }
-            const tickLabels = [];
-            const firstLabel = Math.floor(start / tenMinMs) * tenMinMs;
-            const lastLabel = Math.ceil(viewEnd / tenMinMs) * tenMinMs;
-            for (let t = firstLabel; t <= lastLabel; t += tenMinMs) {
-                const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
-                if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
-                tickLabels.push({ t, x });
-            }
-            for (let i = 1; i <= 3; i++) {
-                const y = pad.top + (plotH * i) / 4;
+            if (plotH >= 70) {
+                for (let i = 1; i <= 3; i++) {
+                    const y = pad.top + (plotH * i) / 4;
+                    ctx.strokeStyle = 'rgba(192, 192, 240, 0.2)';
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                }
+            } else {
+                const y = pad.top + plotH / 2;
                 ctx.strokeStyle = 'rgba(192, 192, 240, 0.2)';
                 ctx.beginPath();
                 ctx.moveTo(0, y);
@@ -1726,47 +2684,66 @@
 
             ctx.restore();
 
-            const tickBaseY = pad.top + plotH + 4;
+            const tickBaseY = pad.top + plotH + 1;
             ctx.fillStyle = '#8a8a8a';
             ctx.font = '11px Segoe UI';
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'right';
-            for (let i = 0; i <= 4; i++) {
-                const value = 100 - i * 25;
-                const y = pad.top + (plotH * i) / 4;
-                ctx.fillText(`${value}%`, pad.left - 6, y);
+            if (plotH >= 70) {
+                for (let i = 0; i <= 4; i++) {
+                    const value = 100 - i * 25;
+                    const y = pad.top + (plotH * i) / 4;
+                    ctx.fillText(`${value}%`, pad.left - 6, y);
+                }
+            } else {
+                ctx.fillText('100%', pad.left - 6, pad.top);
+                ctx.fillText('0%', pad.left - 6, pad.top + plotH);
             }
             ctx.fillStyle = '#8a8a8a';
             ctx.font = '11px Segoe UI';
             ctx.textBaseline = 'top';
             ctx.textAlign = 'center';
-            ctx.lineWidth = 2;
-            for (const label of tickLabels) {
-                const isHalfHour = label.t % halfHourMs === 0;
-                const isTenMin = label.t % tenMinMs === 0;
-                const isMinute = label.t % oneMinMs === 0;
-                const tickHeight = isHalfHour ? 14 : isTenMin ? 11 : 7;
-                const tickTop = tickBaseY;
-                const tickBottom = tickBaseY + tickHeight;
-                ctx.strokeStyle = isHalfHour ? 'rgba(192, 192, 240, 0.65)' : isTenMin ? 'rgba(192, 192, 240, 0.45)' : isMinute ? 'rgba(192, 192, 240, 0.3)' : 'rgba(192, 192, 240, 0.3)';
-                ctx.beginPath();
-                ctx.moveTo(label.x, tickTop);
-                ctx.lineTo(label.x, tickBottom);
-                ctx.stroke();
-                ctx.fillText(formatClockTime(label.t), label.x, tickBaseY + 16);
-            }
-            const minorStart = Math.floor(start / oneMinMs) * oneMinMs;
-            const minorEnd = Math.ceil(viewEnd / oneMinMs) * oneMinMs;
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = 'rgba(192, 192, 240, 0.3)';
-            for (let t = minorStart; t <= minorEnd; t += oneMinMs) {
-                if (t % tenMinMs === 0) continue;
-                const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
-                if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
-                ctx.beginPath();
-                ctx.moveTo(x, tickBaseY);
-                ctx.lineTo(x, tickBaseY + 7);
-                ctx.stroke();
+            if (showTimeAxis) {
+                const tickLabels = [];
+                const firstLabel = Math.floor(start / tenMinMs) * tenMinMs;
+                const lastLabel = Math.ceil(viewEnd / tenMinMs) * tenMinMs;
+                for (let t = firstLabel; t <= lastLabel; t += tenMinMs) {
+                    const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                    if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                    tickLabels.push({ t, x });
+                }
+                ctx.lineWidth = 2;
+                for (const label of tickLabels) {
+                    const isHalfHour = label.t % halfHourMs === 0;
+                    const isTenMin = label.t % tenMinMs === 0;
+                    const isMinute = label.t % oneMinMs === 0;
+                    const scale = Math.max(0.5, Math.min(1, plotH / 140));
+                    const tickHeight = Math.max(4, Math.round((isHalfHour ? 14 : isTenMin ? 11 : 7) * scale));
+                    const alignedX = Math.round(label.x) + 0.5;
+                    const tickTop = Math.round(tickBaseY) + 0.5;
+                    const tickBottom = Math.round(tickBaseY + tickHeight) + 0.5;
+                    ctx.strokeStyle = isHalfHour ? 'rgba(192, 192, 240, 0.65)' : isTenMin ? 'rgba(192, 192, 240, 0.45)' : isMinute ? 'rgba(192, 192, 240, 0.3)' : 'rgba(192, 192, 240, 0.3)';
+                    ctx.beginPath();
+                    ctx.moveTo(alignedX, tickTop);
+                    ctx.lineTo(alignedX, tickBottom);
+                    ctx.stroke();
+                    ctx.fillText(formatClockTime(label.t), Math.round(label.x), tickBaseY + 18);
+                }
+                const minorStart = Math.floor(start / oneMinMs) * oneMinMs;
+                const minorEnd = Math.ceil(viewEnd / oneMinMs) * oneMinMs;
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(192, 192, 240, 0.3)';
+                for (let t = minorStart; t <= minorEnd; t += oneMinMs) {
+                    if (t % tenMinMs === 0) continue;
+                    const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                    if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                    const alignedX = Math.round(x) + 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(alignedX, tickBaseY);
+                    const scale = Math.max(0.5, Math.min(1, plotH / 140));
+                    ctx.lineTo(alignedX, tickBaseY + Math.max(4, Math.round(7 * scale)));
+                    ctx.stroke();
+                }
             }
         }
 
@@ -1778,45 +2755,46 @@
                 const panMs = delta * (pollenWindowMs / 600);
                 pollenViewOffsetMs = Math.max(0, Math.min(getPollenMaxOffset(Date.now()), pollenViewOffsetMs + panMs));
                 pollenUserPanned = pollenViewOffsetMs > 0;
-                drawPollenChart();
+                scheduleChartRender();
                 return;
             }
-            const direction = event.deltaY > 0 ? 1 : -1;
+            const direction = event.deltaY > 0 ? -1 : 1;
             const currentIndex = getZoomIndex();
             const nextIndex = Math.max(0, Math.min(zoomSteps.length - 1, currentIndex + direction));
             pollenWindowMs = zoomSteps[nextIndex].ms;
             pollenViewOffsetMs = Math.max(0, Math.min(getPollenMaxOffset(Date.now()), pollenViewOffsetMs));
             updateZoomControl();
-            drawPollenChart();
+            scheduleChartRender();
         }
 
         function onPollenDragStart(event) {
-            if (!pollenCanvas) return;
-            pollenDrag = { x: event.clientX, offset: pollenViewOffsetMs };
-            pollenCanvas.setPointerCapture(event.pointerId);
-            pollenCanvas.style.cursor = 'grabbing';
+            const target = event.currentTarget;
+            if (!target) return;
+            pollenDrag = { x: event.clientX, offset: pollenViewOffsetMs, canvas: target };
+            target.setPointerCapture(event.pointerId);
+            target.style.cursor = 'grabbing';
         }
 
         function onPollenDragMove(event) {
-            if (!pollenDrag || !pollenCanvas) return;
-            const rect = pollenCanvas.getBoundingClientRect();
-            const plotW = pollenPlotWidth || rect.width;
+            if (!pollenDrag || !pollenDrag.canvas) return;
+            const rect = pollenDrag.canvas.getBoundingClientRect();
+            const plotW = rect.width;
             if (plotW <= 0) return;
             const deltaX = event.clientX - pollenDrag.x;
             const msPerPx = pollenWindowMs / plotW;
             const nextOffset = pollenDrag.offset + deltaX * msPerPx;
             pollenViewOffsetMs = Math.max(0, Math.min(getPollenMaxOffset(Date.now()), nextOffset));
             pollenUserPanned = pollenViewOffsetMs > 0;
-            drawPollenChart();
+            scheduleChartRender();
         }
 
         function onPollenDragEnd(event) {
-            if (!pollenDrag || !pollenCanvas) return;
+            if (!pollenDrag || !pollenDrag.canvas) return;
             try {
-                pollenCanvas.releasePointerCapture(event.pointerId);
+                pollenDrag.canvas.releasePointerCapture(event.pointerId);
             } catch (err) {}
+            pollenDrag.canvas.style.cursor = 'grab';
             pollenDrag = null;
-            pollenCanvas.style.cursor = 'grab';
         }
 
         function getPollenMaxOffset(now) {
@@ -1854,6 +2832,37 @@
             } else {
                 scheduleHistoryRetry();
             }
+
+            if (Array.isArray(statHistory.honey) && statHistory.honey.length > 1) {
+                for (const entry of statHistory.honey) {
+                    if (!Array.isArray(entry) || entry.length < 2) continue;
+                    const t = Number(entry[0]);
+                    const v = Number(entry[1]);
+                    if (isNaN(t) || isNaN(v)) continue;
+                    honeySamples.push({ t, v });
+                }
+                honeySamples.sort((a, b) => a.t - b.t);
+                honeyHistoryLoaded = true;
+                rebuildHoneySeries();
+                drawHoneyChart();
+            }
+
+            if (statHistory.buffs && typeof statHistory.buffs === 'object') {
+                for (const name of ['whiteboost', 'redboost', 'blueboost', 'haste', 'focus', 'bombcombo', 'balloonaura', 'reindeerfetch', 'honeymark', 'pollenmark', 'festivemark', 'popstar', 'melody', 'bear', 'babylove', 'jbshare', 'guiding']) {
+                    const series = statHistory.buffs[name];
+                    if (!Array.isArray(series)) continue;
+                    buffUptimeSamples[name].length = 0;
+                    for (const entry of series) {
+                        if (!Array.isArray(entry) || entry.length < 2) continue;
+                        const t = Number(entry[0]);
+                        const v = Number(entry[1]);
+                        if (isNaN(t) || isNaN(v)) continue;
+                        buffUptimeSamples[name].push({ t, v });
+                    }
+                    buffUptimeSamples[name].sort((a, b) => a.t - b.t);
+                }
+                drawBuffUptimeChart();
+            }
         }
 
         function scheduleHistoryRetry() {
@@ -1890,29 +2899,30 @@
         }
 
         function onPollenMouseDown(event) {
-            if (!pollenCanvas || event.button !== 0) return;
-            pollenDrag = { x: event.clientX, offset: pollenViewOffsetMs };
-            pollenCanvas.style.cursor = 'grabbing';
+            if (event.button !== 0) return;
+            const target = event.currentTarget;
+            if (!target) return;
+            pollenDrag = { x: event.clientX, offset: pollenViewOffsetMs, canvas: target };
+            target.style.cursor = 'grabbing';
         }
 
         function onPollenMouseMove(event) {
-            if (!pollenDrag || !pollenCanvas || !(event.buttons & 1)) return;
-            const rect = pollenCanvas.getBoundingClientRect();
-            const plotW = pollenPlotWidth || rect.width;
+            if (!pollenDrag || !pollenDrag.canvas || !(event.buttons & 1)) return;
+            const rect = pollenDrag.canvas.getBoundingClientRect();
+            const plotW = rect.width;
             if (plotW <= 0) return;
             const deltaX = event.clientX - pollenDrag.x;
             const msPerPx = pollenWindowMs / plotW;
             const nextOffset = pollenDrag.offset + deltaX * msPerPx;
             pollenViewOffsetMs = Math.max(0, Math.min(getPollenMaxOffset(Date.now()), nextOffset));
             pollenUserPanned = pollenViewOffsetMs > 0;
-            drawPollenChart();
+            scheduleChartRender();
         }
 
         function onPollenMouseUp() {
             pollenDrag = null;
-            if (pollenCanvas) {
-                pollenCanvas.style.cursor = 'grab';
-            }
+            if (pollenCanvas) pollenCanvas.style.cursor = 'grab';
+            if (honeyCanvas) honeyCanvas.style.cursor = 'grab';
         }
 
         function initChartControls() {
@@ -1929,7 +2939,7 @@
                 pollenWindowMs = next.ms;
                 pollenViewOffsetMs = Math.max(0, Math.min(getPollenMaxOffset(Date.now()), pollenViewOffsetMs));
                 updateZoomControl();
-                drawPollenChart();
+                scheduleChartRender();
             });
 
             renderZoomTicks();
@@ -1995,11 +3005,13 @@
         setInterval(reloadMessages, 1000);
         setInterval(reloadStats, 1000);
         window.addEventListener('resize', () => {
-            updateHeaderLayout();
-            resizePollenCanvas();
+            scheduleChartResize();
         });
         ensurePollenCanvas();
+        drawHoneyChart();
         drawPollenChart();
+        drawBuffUptimeChart();
+        scheduleChartResize();
         reloadMessages();
         reloadStats();
     </script>

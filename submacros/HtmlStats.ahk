@@ -110,9 +110,9 @@ for v in ["comforting","motivating","satisfying","refreshing","invigorating"]
     nectarValues[v] := Map()
 
 buffValues := Map(), buffValues.CaseSense := 0
-for v in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","popstar","melody","bear","babylove","jbshare","guiding"]
+for v in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","festivemark","popstar","melody","bear","babylove","jbshare","guiding"]
     buffValues[v] := Map()
-for v in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","popstar","melody","bear","babylove","jbshare","guiding"]
+for v in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","festivemark","popstar","melody","bear","babylove","jbshare","guiding"]
     historyBuffs[v] := []
 
 buffCharacters := Map()
@@ -138,6 +138,8 @@ buffBitmaps["pBMBombCombo"] := Gdip_CreateBitmap(5,1)
 pGraphics := Gdip_GraphicsFromImage(buffBitmaps["pBMBombCombo"]), Gdip_GraphicsClear(pGraphics, 0xff272727), Gdip_DeleteGraphics(pGraphics)
 buffBitmaps["pBMBalloonAura"] := Gdip_CreateBitmap(5,1)
 pGraphics := Gdip_GraphicsFromImage(buffBitmaps["pBMBalloonAura"]), Gdip_GraphicsClear(pGraphics, 0xfffafd38), Gdip_DeleteGraphics(pGraphics)
+buffBitmaps["pBMMelody"] := Gdip_CreateBitmap(3,2)
+pGraphics := Gdip_GraphicsFromImage(buffBitmaps["pBMMelody"]), Gdip_GraphicsClear(pGraphics, 0xff242424), Gdip_DeleteGraphics(pGraphics)
 buffBitmaps["pBMJBShare"] := Gdip_CreateBitmap(5,1)
 pGraphics := Gdip_GraphicsFromImage(buffBitmaps["pBMJBShare"]), Gdip_GraphicsClear(pGraphics, 0xfff9ccff), Gdip_DeleteGraphics(pGraphics)
 buffBitmaps["pBMBabyLove"] := Gdip_CreateBitmap(5,1)
@@ -148,6 +150,7 @@ buffBitmaps["pBMReindeerFetch"] := Gdip_CreateBitmap(5,1)
 pGraphics := Gdip_GraphicsFromImage(buffBitmaps["pBMReindeerFetch"]), Gdip_GraphicsClear(pGraphics, 0xffcc2c2c), Gdip_DeleteGraphics(pGraphics)
 buffBitmaps["pBMHoneyMark"] := Gdip_BitmapFromBase64("iVBORw0KGgoAAAANSUhEUgAAAAkAAAAEBAMAAACuIQj9AAAAMFBMVEUcJhYXKxsXKxwZLx0xNRc0YDI1YTM4ZzZ3axp8cBs9cTueih2vlx7WtiDYtyHsxyJxibSYAAAAI0lEQVR4AQEYAOf/AKqqcwvwAKqqUZ7wAKqqUY3wAKqqYkzwjf0MCuMjsQoAAAAASUVORK5CYII=")
 buffBitmaps["pBMPollenMark"] := Gdip_BitmapFromBase64("iVBORw0KGgoAAAANSUhEUgAAAAoAAAAFCAMAAABLuo1aAAAAQlBMVEUPHBYRHRcUIhgUJRoaMB0pMiQcNSAuNyYfOSI5QCwnSChdYD81YzQ2ZDQ5ajg8bjo8cDo9cTuEglSknWS9tHLk1YZKij78AAAAQklEQVR4AQE3AMj/ABERERERDggCCxQAERERERERDAYABQAREREREREPCgMBABEREREREAoDBxIAERERERENBAkTFUoXAq+Dil5HAAAAAElFTkSuQmCC")
+buffBitmaps["pBMFestiveMark"] := Gdip_BitmapFromBase64("iVBORw0KGgoAAAANSUhEUgAAAAsAAAABBAMAAAD6GUlzAAAAIVBMVEU7QDNvQzmtSDmySTizSTm2STi4STi5STi5TDsyWDA9cTvalFRvAAAAEklEQVR4AQEHAPj/AKkBh0I2UAegAfr1a/UAAAAAAElFTkSuQmCC")
 buffBitmaps["pBMGuiding"] := Gdip_BitmapFromBase64("iVBORw0KGgoAAAANSUhEUgAAAAwAAAACCAMAAABboc2lAAAAOVBMVEWPf02QgE6RgE+SgU/SuHDTunHUunHhxnjhx3niyHrjyXvky3zn0oPp1ITq1obq2Yju4o7u44/v5JDO0m0EAAAAJUlEQVR4AQEaAOX/ABIQDAgEAwEECQ0REgASDgoHBQACBgcLDxIMQwDt+rZJwwAAAABJRU5ErkJggg==")
 buffBitmaps["pBMBearBrown"] := Gdip_BitmapFromBase64("iVBORw0KGgoAAAANSUhEUgAAAAwAAAABBAMAAAAYxVIKAAAAD1BMVEUwLi1STEihfVWzpZbQvKTt7OCuAAAAEklEQVR4AQEHAPj/ACJDEAE0IgLvAM1oKEJeAAAAAElFTkSuQmCC")
 buffBitmaps["pBMBearBlack"] := Gdip_BitmapFromBase64("iVBORw0KGgoAAAANSUhEUgAAAA4AAAABBAMAAAAcMII3AAAAFVBMVEUwLi1TTD9lbHNmbXN5enW5oXHQuYJDhTsuAAAAE0lEQVR4AQEIAPf/ACNGUQAVZDIFbwFmjB55HwAAAABJRU5ErkJggg==")
@@ -506,8 +509,8 @@ DetectBuffs(i) {
     pBMArea := Gdip_BitmapFromScreen(windowX "|" windowY+offsetY+30 "|" windowWidth "|50")
 
     ; basic on/off
-    for v in ["jbshare","babylove","guiding"]
-        buffValues[v][i] := (Gdip_ImageSearch(pBMArea, buffBitmaps["pBM" v], , , 30, , , (v = "guiding") ? 10 : 0, , 7) = 1)
+    for v in ["jbshare","babylove","festivemark","guiding"]
+        buffValues[v][i] := (Gdip_ImageSearch(pBMArea, buffBitmaps["pBM" v], , , 30, , , InStr(v, "mark") ? 6 : (v = "guiding") ? 10 : 0, , 7) = 1)
 
     ; bear morphs
     buffValues["bear"][i] := 0
@@ -719,12 +722,12 @@ WriteStats() {
             "redboost", 10, "whiteboost", 10, "blueboost", 10,
             "haste", 10, "focus", 10, "bombcombo", 10, "balloonaura", 10,
             "inspire", 50, "reindeerfetch", 10, "honeymark", 10, "pollenmark", 10,
-            "popstar", 1, "melody", 1, "bear", 1, "babylove", 1, "jbshare", 1, "guiding", 1
+            "festivemark", 1, "popstar", 1, "melody", 1, "bear", 1, "babylove", 1, "jbshare", 1, "guiding", 1
         )
 
         time_value := (60*A_Min+A_Sec)//6
         i := (time_value = 0) ? 600 : time_value
-        for k, name in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","popstar","melody","bear","babylove","jbshare","guiding"]
+        for k, name in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","festivemark","popstar","melody","bear","babylove","jbshare","guiding"]
         {
             value := buffValues[name].Has(i) ? buffValues[name][i] : 0
             maxVal := buffMax[name]
@@ -764,7 +767,7 @@ WriteHistory() {
     if (!historyLastBuffs || (now_ms - historyLastBuffs >= 1000)) {
         time_value := (60*A_Min+A_Sec)//6
         i := (time_value = 0) ? 600 : time_value
-        for k, name in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","popstar","melody","bear","babylove","jbshare","guiding"]
+        for k, name in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","festivemark","popstar","melody","bear","babylove","jbshare","guiding"]
         {
             value := buffValues[name].Has(i) ? buffValues[name][i] : 0
             historyBuffs[name].Push([now_ms, value])
@@ -781,7 +784,7 @@ WriteHistory() {
         try FileDelete(historyFile)
         fh := FileOpen(historyFile, "w", "UTF-8")
         buffsJson := ""
-        for k, name in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","popstar","melody","bear","babylove","jbshare","guiding"]
+        for k, name in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","festivemark","popstar","melody","bear","babylove","jbshare","guiding"]
         {
             series := historyBuffs[name]
             buffsJson .= (k > 1 ? ", " : "") . '"' . name . '": ' . BuildHistorySeries(series)
