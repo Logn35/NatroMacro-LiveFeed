@@ -28,15 +28,17 @@ global windowX := 0, windowY := 0, windowWidth := 0, windowHeight := 0
 ; OCR initialization - check if OCR is available (from StatMonitor.ahk)
 ocr_enabled := 1
 ocr_language := ""
+ocr_init_debug := "init"
 for k,v in Map("Windows.Globalization.Language","{9B0252AC-0C27-44F8-B792-9793FB66C63E}", "Windows.Graphics.Imaging.BitmapDecoder","{438CCB26-BCEF-4E95-BAD6-23A822E58D01}", "Windows.Media.Ocr.OcrEngine","{5BFFA85A-3384-3540-9940-699120D428A8}")
 {
-    hString := Buffer(8), DllCall("Combase.dll\WindowsCreateString", "WStr", k, "UInt", StrLen(k), "Ptr", hString)
-    GUID := Buffer(16), DllCall("ole32\CLSIDFromString", "WStr", v, "Ptr", GUID)
+    CreateHString(k, &hString)
+    GUID := CLSIDFromString(v)
     result := DllCall("Combase.dll\RoGetActivationFactory", "Ptr", hString, "Ptr", GUID, "Ptr*", &pFactory:=0)
-    DllCall("Combase.dll\WindowsDeleteString", "Ptr", hString)
+    DeleteHString(hString)
     if (result != 0)
     {
         ocr_enabled := 0
+        ocr_init_debug := "fail:" . k . " 0x" . Format("{:x}", result)
         break
     }
 }
@@ -60,8 +62,10 @@ if (ocr_enabled = 1)
         ; Final fallback - use FirstFromAvailableLanguages
         if (ocr_language = "")
             ocr_language := "FirstFromAvailableLanguages"
+        ocr_init_debug := "ok:" . ocr_language
     } catch {
         ocr_enabled := 0
+        ocr_init_debug := "fail:ocr_list"
     }
 }
 
@@ -72,9 +76,23 @@ honeyUpdateInterval := 5000     ; 5 seconds
 ; State
 currentHoney := 0
 currentBackpack := 0
+lastBackpackSample := 0
+lastBackpackTime := 0
+backpackRate := 0
+lastHoneySample := 0
+lastHoneyTime := 0
+honeyRate := 0
 statsFile := A_WorkingDir "\feed\stat_monitor_stats.js"
+historyFile := A_WorkingDir "\feed\stat_monitor_history.js"
 backpackSamples := []  ; Rolling average filter for smoother backpack readings
 nectarValues := Map(), nectarValues.CaseSense := 0
+historyMaxMs := 6 * 60 * 60 * 1000
+historyHoney := []
+historyBackpack := []
+historyBuffs := Map(), historyBuffs.CaseSense := 0
+historyLastHoney := 0
+historyLastBackpack := 0
+historyLastBuffs := 0
 
 nectarBitmaps := Map(), nectarBitmaps.CaseSense := 0
 nectarBitmaps["comforting"] := Gdip_CreateBitmap(3,1)
@@ -94,6 +112,8 @@ for v in ["comforting","motivating","satisfying","refreshing","invigorating"]
 buffValues := Map(), buffValues.CaseSense := 0
 for v in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","popstar","melody","bear","babylove","jbshare","guiding"]
     buffValues[v] := Map()
+for v in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","popstar","melody","bear","babylove","jbshare","guiding"]
+    historyBuffs[v] := []
 
 buffCharacters := Map()
 buffCharacters[0] := Gdip_BitmapFromBase64("iVBORw0KGgoAAAANSUhEUgAAAAQAAAAKCAAAAAC2kKDSAAAAAnRSTlMAAHaTzTgAAAA9SURBVHgBATIAzf8BAADzAAAA8wAAAAAAAAAA8wAAAAIAAAAAAgAAAAACAAAAAAAAAAAAAADzAAABAADzAIAxBMg7bpCUAAAAAElFTkSuQmCC")
@@ -143,12 +163,14 @@ SetTimer(UpdateHoney, honeyUpdateInterval)
 SetTimer(UpdateNectars, 1000)
 SetTimer(UpdateBuffs, 1000)
 SetTimer(CheckMacroRunning, 5000)
+SetTimer(WriteHistory, 2000)
 
 ; Initial update
 UpdateBackpack()
 UpdateHoney()
 UpdateNectars()
 UpdateBuffs()
+WriteHistory()
 
 Persistent
 
@@ -168,6 +190,7 @@ CheckMacroRunning() {
 UpdateBackpack() {
     global currentBackpack, currentHoney, statsFile, backpackSamples
     global windowX, windowY, windowWidth, windowHeight
+    global lastBackpackSample, lastBackpackTime, backpackRate
 
     hwnd := GetRobloxHWND()
     if !hwnd
@@ -285,6 +308,17 @@ UpdateBackpack() {
     for val in backpackSamples
         sum += val
     currentBackpack := Round(sum / backpackSamples.Length)
+    now := A_TickCount
+    if (lastBackpackSample > 0 && now > lastBackpackTime) {
+        delta := currentBackpack - lastBackpackSample
+        seconds := (now - lastBackpackTime) / 1000
+        if (seconds > 0) {
+            rate := delta / seconds
+            backpackRate := rate > 0 ? Round(rate, 1) : 0
+        }
+    }
+    lastBackpackSample := currentBackpack
+    lastBackpackTime := now
 
     WriteStats()
 }
@@ -296,54 +330,89 @@ UpdateHoney() {
     global currentHoney, currentBackpack, statsFile
     global windowX, windowY, windowWidth, windowHeight
     global ocr_enabled, ocr_language
+    global lastHoneySample, lastHoneyTime, honeyRate
 
     ; Skip if OCR is not available
     if (ocr_enabled != 1)
+    {
+        WriteStats()
         return
+    }
 
     try {
-        ; Check roblox window exists
-        hwnd := GetRobloxHWND()
-        GetRobloxClientPos(hwnd), offsetY := GetYOffset(hwnd)
-        if !(windowHeight >= 500)
-            return
-
-        ; Initialise array to store detected values and get bitmap and effect ready
-        detected := Map()
-        pBM := Gdip_BitmapFromScreen(windowX + windowWidth//2 - 241 "|" windowY + offsetY "|140|36")
-        pEffect := Gdip_CreateEffect(5, -80, 30)
-
-        ; Detect honey, enlarge image if necessary
-        Loop 25 {
-            i := A_Index
-            Loop 2 {
-                pBMNew := Gdip_ResizeBitmap(pBM, ((A_Index = 1) ? (250 + i * 20) : (750 - i * 20)), 36 + i * 4, 2)
-                Gdip_BitmapApplyEffect(pBMNew, pEffect)
-                hBM := Gdip_CreateHBITMAPFromBitmap(pBMNew)
-                Gdip_DisposeImage(pBMNew)
-                pIRandomAccessStream := HBitmapToRandomAccessStream(hBM)
-                DllCall("DeleteObject", "Ptr", hBM)
-                try detected[v := ((StrLen((n := RegExReplace(StrReplace(StrReplace(StrReplace(StrReplace(ocr(pIRandomAccessStream, ocr_language), "o", "0"), "i", "1"), "l", "1"), "a", "4"), "\D"))) > 0) ? n : 0)] := detected.Has(v) ? [detected[v][1]+1, detected[v][2] " " i . A_Index] : [1, i . A_Index]
+        current_honey := DetectHoney()
+        if current_honey
+        {
+            currentHoney := current_honey
+            now := A_TickCount
+            if (lastHoneySample > 0 && now > lastHoneyTime) {
+                delta := currentHoney - lastHoneySample
+                if (delta >= 0) {
+                    seconds := (now - lastHoneyTime) / 1000
+                    if (seconds > 0)
+                        honeyRate := Round(delta / seconds)
+                }
+            } else {
+                lastHoneySample := currentHoney
+                lastHoneyTime := now
             }
         }
 
-        ; Clean up
-        Gdip_DisposeImage(pBM), Gdip_DisposeEffect(pEffect)
-        DllCall("psapi.dll\EmptyWorkingSet", "UInt", -1)
-
-        ; Evaluate current honey
-        current_honey := 0
-        for k, v in detected
-            if ((v[1] > 2) && (k > current_honey))
-                current_honey := k
-
-        if current_honey
-            currentHoney := current_honey
-
         WriteStats()
     } catch {
-        ; OCR failed, skip this update
+        WriteStats()
     }
+}
+
+/********************************************************************
+* @description: uses OCR to detect the current honey value in BSS
+* @returns: (string) current honey value or (integer) 0 on failure
+* @note function is a WIP, and OCR readings are not 100% reliable!
+* @author SP
+********************************************************************/
+DetectHoney()
+{
+    global ocr_language
+
+    ; check roblox window exists
+    hwnd := GetRobloxHWND()
+    GetRobloxClientPos(hwnd), offsetY := GetYOffset(hwnd)
+    if !(windowHeight >= 500)
+        return 0
+
+    ; initialise array to store detected values and get bitmap and effect ready
+    detected := Map()
+    pBM := Gdip_BitmapFromScreen(windowX+windowWidth//2-241 "|" windowY+offsetY "|140|36")
+    pEffect := Gdip_CreateEffect(5,-80,30)
+
+    ; detect honey, enlarge image if necessary
+    Loop 25
+    {
+        i := A_Index
+        Loop 2
+        {
+            pBMNew := Gdip_ResizeBitmap(pBM, ((A_Index = 1) ? (250 + i * 20) : (750 - i * 20)), 36 + i * 4, 2)
+            Gdip_BitmapApplyEffect(pBMNew, pEffect)
+            hBM := Gdip_CreateHBITMAPFromBitmap(pBMNew)
+            ;Gdip_SaveBitmapToFile(pBMNew, i A_Index ".png")
+            Gdip_DisposeImage(pBMNew)
+            pIRandomAccessStream := HBitmapToRandomAccessStream(hBM)
+            DllCall("DeleteObject", "Ptr", hBM)
+            try detected[v := ((StrLen((n := RegExReplace(StrReplace(StrReplace(StrReplace(StrReplace(ocr(pIRandomAccessStream, ocr_language), "o", "0"), "i", "1"), "l", "1"), "a", "4"), "\D"))) > 0) ? n : 0)] := detected.Has(v) ? [detected[v][1]+1, detected[v][2] " " i . A_Index] : [1, i . A_Index]
+        }
+    }
+
+    ; clean up
+    Gdip_DisposeImage(pBM), Gdip_DisposeEffect(pEffect)
+    DllCall("psapi.dll\EmptyWorkingSet", "UInt", -1)
+
+    ; evaluate current honey
+    current_honey := 0
+    for k,v in detected
+        if ((v[1] > 2) && (k > current_honey))
+            current_honey := k
+
+    return current_honey
 }
 
 ;===========================================
@@ -593,7 +662,7 @@ DetectBuffs(i) {
 ; WRITE TO JS FILE
 ;===========================================
 WriteStats() {
-    global currentHoney, currentBackpack, statsFile
+    global currentHoney, currentBackpack, statsFile, honeyRate, backpackRate
     global nectarValues
     global buffValues
 
@@ -664,9 +733,11 @@ WriteStats() {
             buffItems .= (k > 1 ? ", " : "") . item
         }
 
-        f.Write('var statData = {"honey": ' . currentHoney . ', "backpack": ' . currentBackpack . ', "planters": [' . planterItems . '], "nectars": [' . nectarItems . '], "buffs": [' . buffItems . ']};')
+        f.Write('var statData = {"honey": ' . currentHoney . ', "honey_rate": ' . honeyRate . ', "backpack": ' . currentBackpack . ', "backpack_rate": ' . backpackRate . ', "planters": [' . planterItems . '], "nectars": [' . nectarItems . '], "buffs": [' . buffItems . ']};')
         f.Close()
     }
+
+    try WriteHistory()
 }
 
 JsonEscape(value) {
@@ -675,6 +746,68 @@ JsonEscape(value) {
     value := StrReplace(value, "`r", "\r")
     value := StrReplace(value, "`n", "\n")
     return value
+}
+
+WriteHistory() {
+    global historyFile, historyMaxMs
+    global historyHoney, historyBackpack, historyBuffs
+    global currentHoney, currentBackpack
+    global buffValues, historyLastHoney, historyLastBackpack, historyLastBuffs
+
+    now_ms := nowUnix() * 1000
+    cutoff := now_ms - historyMaxMs
+
+    if (currentHoney > 0)
+        AddHistorySample(historyHoney, &historyLastHoney, now_ms, currentHoney, 5000)
+    AddHistorySample(historyBackpack, &historyLastBackpack, now_ms, currentBackpack, 1000)
+
+    if (!historyLastBuffs || (now_ms - historyLastBuffs >= 1000)) {
+        time_value := (60*A_Min+A_Sec)//6
+        i := (time_value = 0) ? 600 : time_value
+        for k, name in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","popstar","melody","bear","babylove","jbshare","guiding"]
+        {
+            value := buffValues[name].Has(i) ? buffValues[name][i] : 0
+            historyBuffs[name].Push([now_ms, value])
+        }
+        historyLastBuffs := now_ms
+    }
+
+    TrimHistory(historyHoney, cutoff)
+    TrimHistory(historyBackpack, cutoff)
+    for name, series in historyBuffs
+        TrimHistory(series, cutoff)
+
+    try {
+        try FileDelete(historyFile)
+        fh := FileOpen(historyFile, "w", "UTF-8")
+        buffsJson := ""
+        for k, name in ["redboost","whiteboost","blueboost","haste","focus","bombcombo","balloonaura","inspire","reindeerfetch","honeymark","pollenmark","popstar","melody","bear","babylove","jbshare","guiding"]
+        {
+            series := historyBuffs[name]
+            buffsJson .= (k > 1 ? ", " : "") . '"' . name . '": ' . BuildHistorySeries(series)
+        }
+        fh.Write('var statHistory = {"updated": ' . now_ms . ', "honey": ' . BuildHistorySeries(historyHoney) . ', "backpack": ' . BuildHistorySeries(historyBackpack) . ', "buffs": {' . buffsJson . '}};')
+        fh.Close()
+    }
+}
+
+AddHistorySample(series, &lastTime, now_ms, value, minIntervalMs) {
+    if (lastTime && (now_ms - lastTime) < minIntervalMs)
+        return
+    series.Push([now_ms, value + 0])
+    lastTime := now_ms
+}
+
+TrimHistory(series, cutoff) {
+    while (series.Length > 0 && series[1][1] < cutoff)
+        series.RemoveAt(1)
+}
+
+BuildHistorySeries(series) {
+    items := ""
+    for idx, point in series
+        items .= (idx > 1 ? "," : "") . "[" . point[1] . "," . point[2] . "]"
+    return "[" . items . "]"
 }
 
 ;===========================================

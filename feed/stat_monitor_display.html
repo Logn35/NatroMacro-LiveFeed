@@ -18,34 +18,200 @@
             display: flex;
             flex-direction: column;
         }
+        .content-row {
+            display: flex;
+            gap: 16px;
+            flex: 1 1 auto;
+            min-height: 0;
+            align-items: stretch;
+            padding: 0 20px;
+        }
 
         /* Messages container */
         #messages-container {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            max-width: 600px;
+            max-width: 300px;
             overflow: hidden;
             flex-grow: 1;
-            padding: 0 20px;
+            padding: 0 10px;
         }
         .feed-box {
+            background: #201E20;
+            border-radius: 8px;
+            border: 1px solid #2C2A2C;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+            padding: 10px 12px;
+            margin: 0;
+            max-width: 300px;
+            flex: 0 0 300px;
+            overflow: hidden;
+        }
+        .chart-box {
             background: #201E20;
             border-radius: 10px;
             border: 1px solid #2C2A2C;
             box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
             padding: 14px 16px;
-            margin: 0 20px;
-            max-width: 340px;
             flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .chart-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 6px;
+            position: relative;
+        }
+        .chart-title {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0;
+            text-align: center;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+        .chart-divider {
+            height: 1px;
+            background: #2C2A2C;
+            margin: 4px 0 8px;
+            width: 100%;
+        }
+        .chart-subtitle {
+            font-size: 10px;
+            color: #8a8a8a;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 8px;
+            text-align: center;
+        }
+        .chart-controls {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex: 1 1 auto;
+            justify-content: flex-end;
+            margin-top: -6px;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 160px;
+        }
+        .control-icon {
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            flex: 0 0 auto;
+        }
+        .control-icon svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .control-icon .fill {
+            fill: currentColor;
+            stroke: none;
+        }
+        .control-wrap {
+            position: relative;
+            flex: 1 1 auto;
+            height: 28px;
+        }
+        .control-ticks {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+        }
+        .control-ticks span {
+            width: 2px;
+            height: 100%;
+            background: rgba(192, 192, 240, 0.35);
+            border-radius: 2px;
+            transform: scaleY(0.45);
+            transform-origin: center;
+        }
+        .control-ticks span.mid {
+            background: rgba(192, 192, 240, 0.4);
+            transform: scaleY(0.45);
+        }
+        .control-input {
+            appearance: none;
+            width: 100%;
+            height: 28px;
+            background: transparent;
+            margin: 0;
+            cursor: pointer;
+        }
+        .control-input::-webkit-slider-runnable-track {
+            height: 6px;
+            background: #2C2A2C;
+            border-radius: 999px;
+        }
+        .control-input::-webkit-slider-thumb {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #d6d6de;
+            border: 2px solid #1e1d1f;
+            margin-top: -4px;
+        }
+        .control-input::-moz-range-track {
+            height: 6px;
+            background: #2C2A2C;
+            border-radius: 999px;
+        }
+        .control-input::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #d6d6de;
+            border: 2px solid #1e1d1f;
+        }
+        .chart-canvas-wrap {
+            position: relative;
+            flex: 1 1 auto;
+            min-height: 240px;
+            background: #201E20;
+            border-radius: 8px;
             overflow: hidden;
+        }
+        .chart-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: grab;
+            touch-action: none;
         }
         .feed-title {
             font-size: 11px;
             color: #888;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            text-align: center;
         }
 
         .message {
@@ -53,6 +219,7 @@
             flex-direction: row;
             align-items: stretch;
             gap: 0;
+            width: 100%;
         }
         .color-bar {
             width: 4px;
@@ -62,14 +229,15 @@
         .embed {
             background-color: #272527;
             border-radius: 0 6px 6px 0;
-            padding: 10px 14px;
+            padding: 8px 10px;
+            flex: 1 1 auto;
         }
         .message {
             border-radius: 6px;
             overflow: hidden;
         }
         .embed-content {
-            font-size: 14px;
+            font-size: 12px;
             line-height: 1.4;
             white-space: pre-wrap;
             word-wrap: break-word;
@@ -87,18 +255,22 @@
             background: #2C2A2C;
             padding: 2px 6px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         /* Stats Header */
         .stats-header {
             display: flex;
             justify-content: center;
-            gap: 16px;
+            column-gap: 16px;
+            row-gap: 12px;
             padding: 8px 20px;
             margin-bottom: 12px;
             flex-wrap: wrap;
             align-items: stretch;
+        }
+        .stats-header.force-second-row {
+            row-gap: 4px;
         }
         .stat-box {
             display: flex;
@@ -131,6 +303,13 @@
             background: #2C2A2C;
             border-radius: 4px;
             line-height: 1;
+        }
+        .stat-rate {
+            font-size: 11px;
+            color: #9aa0a6;
+            margin-top: 3px;
+            text-align: center;
+            min-height: 12px;
         }
         .stat-text {
             display: flex;
@@ -193,6 +372,10 @@
             flex: 1 1 0;
             width: auto;
             min-width: 420px;
+            margin-top: 12px;
+        }
+        .stats-header.force-second-row .nectars-box {
+            margin-top: 12px;
         }
         .flex-break {
             flex-basis: 100%;
@@ -337,7 +520,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: 3px;
             width: 100%;
             flex: 1;
         }
@@ -345,17 +528,17 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 2px;
-            width: 60px;
+            gap: 4px;
+            width: 54px;
         }
         .nectar-ring-wrap {
             position: relative;
-            width: 38px;
-            height: 38px;
+            width: 34px;
+            height: 34px;
         }
         .nectar-ring {
-            width: 38px;
-            height: 38px;
+            width: 34px;
+            height: 34px;
             transform: rotate(-90deg);
         }
         .nectar-ring circle {
@@ -377,28 +560,30 @@
         }
         .nectar-icon-center {
             position: absolute;
-            inset: 0;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
             display: flex;
             align-items: center;
             justify-content: center;
         }
         .nectar-icon-center img {
-            width: 18px;
-            height: 18px;
+            width: 17px;
+            height: 17px;
             object-fit: contain;
         }
         .nectar-percent {
-            font-size: 9px;
+            font-size: 10px;
             color: #cfcfcf;
             line-height: 1;
         }
         .nectar-percent-row {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
         }
         .nectar-plus {
-            font-size: 8px;
+            font-size: 9px;
             color: #9b9b9b;
             line-height: 1;
         }
@@ -506,13 +691,15 @@
             <div class="stat-value honey">
                 <span class="stat-text" id="honey-value">--</span>
             </div>
+            <div class="stat-rate" id="honey-rate">+0/sec</div>
         </div>
         <div class="stat-box">
-            <div class="stat-label">Backpack</div>
+            <div class="stat-label">Pollen</div>
             <div class="stat-value backpack" id="backpack-value">
                 <div class="backpack-bar" id="backpack-bar" style="width: 0%"></div>
                 <span class="backpack-text" id="backpack-text">--%</span>
             </div>
+            <div class="stat-rate" id="backpack-rate">+0/sec</div>
         </div>
         <div class="stat-box buffs-box">
             <div class="buffs-header">
@@ -775,10 +962,45 @@
         </div>
     </div>
 
-    <div class="feed-box">
-        <div class="feed-title">Feed</div>
-        <div id="messages-container">
-            <div class="no-messages">Waiting for messages...</div>
+    <div class="content-row">
+        <div class="feed-box">
+            <div class="feed-title">Status</div>
+            <div id="messages-container">
+                <div class="no-messages">Waiting for messages...</div>
+            </div>
+        </div>
+        <div class="chart-box">
+            <div class="chart-header">
+                <div class="chart-title">Graphs</div>
+                <div class="chart-controls">
+                    <div class="control-group">
+                        <div class="control-icon" title="Zoom out">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="11" cy="11" r="6"></circle>
+                                <path d="M16 16l4 4"></path>
+                                <path d="M8 11h6"></path>
+                            </svg>
+                        </div>
+                        <div class="control-wrap">
+                            <div class="control-ticks" id="zoom-ticks"></div>
+                            <input class="control-input" id="zoom-range" type="range" min="0" max="0" step="1" value="0">
+                        </div>
+                        <div class="control-icon" title="Zoom in">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="11" cy="11" r="6"></circle>
+                                <path d="M16 16l4 4"></path>
+                                <path d="M11 8v6"></path>
+                                <path d="M8 11h6"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-divider"></div>
+            <div class="chart-subtitle">Pollen</div>
+            <div class="chart-canvas-wrap">
+                <canvas class="chart-canvas" id="pollen-chart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -845,6 +1067,22 @@
             if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
             if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
             return num.toLocaleString();
+        }
+
+        function formatRate(value) {
+            if (value === null || value === undefined) return '+0/sec';
+            const num = Number(value);
+            if (isNaN(num)) return `+${value}/sec`;
+            return `+${formatHoney(num)}/sec`;
+        }
+        function parseRgb(color) {
+            const match = String(color).match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/i);
+            if (!match) return null;
+            return {
+                r: Number(match[1]),
+                g: Number(match[2]),
+                b: Number(match[3])
+            };
         }
 
         // Calculate color from green to yellow to red based on percentage
@@ -1193,6 +1431,8 @@
 
         function displayStats() {
             const honeyEl = document.getElementById('honey-value');
+            const honeyRateEl = document.getElementById('honey-rate');
+            const backpackRateEl = document.getElementById('backpack-rate');
             const backpackEl = document.getElementById('backpack-value');
             const backpackText = document.getElementById('backpack-text');
             const backpackBar = document.getElementById('backpack-bar');
@@ -1201,12 +1441,19 @@
                 if (statData.honey !== undefined) {
                     honeyEl.textContent = formatHoney(statData.honey);
                 }
+                if (honeyRateEl) {
+                    honeyRateEl.textContent = formatRate(statData.honey_rate || 0);
+                }
                 if (statData.backpack !== undefined) {
                     const bp = Math.min(100, Math.max(0, statData.backpack));
                     const color = getBackpackColor(bp);
                     backpackText.textContent = bp + '%';
                     backpackBar.style.width = bp + '%';
                     backpackBar.style.backgroundColor = color;
+                    updatePollenChart(bp);
+                }
+                if (backpackRateEl) {
+                    backpackRateEl.textContent = formatRate(statData.backpack_rate || 0);
                 }
                 initBuffFilter();
                 updateBuffs(statData.buffs);
@@ -1229,9 +1476,530 @@
             document.head.appendChild(script);
         }
 
+        let pollenCanvas = null;
+        let pollenCtx = null;
+        const pollenSeries = [];
+        let pollenWindowMs = 60 * 60 * 1000;
+        const pollenWindowMinMs = 60 * 1000;
+        const pollenWindowMaxMs = 6 * 60 * 60 * 1000;
+        let pollenViewOffsetMs = 0;
+        let pollenPlotWidth = 0;
+        let pollenDrag = null;
+        let pollenUserPanned = false;
+        let pollenHistoryLoaded = false;
+        let historyRetryTimer = null;
+        const pollenStorageKey = 'statMonitorPollenSeries';
+        let pollenLastSave = 0;
+
+        const zoomSteps = [
+            { label: '6h', ms: 6 * 60 * 60 * 1000 },
+            { label: '3h', ms: 3 * 60 * 60 * 1000 },
+            { label: '2h', ms: 2 * 60 * 60 * 1000 },
+            { label: '90m', ms: 90 * 60 * 1000 },
+            { label: '1h', ms: 60 * 60 * 1000 },
+            { label: '30m', ms: 30 * 60 * 1000 },
+            { label: '15m', ms: 15 * 60 * 1000 },
+            { label: '10m', ms: 10 * 60 * 1000 },
+            { label: '5m', ms: 5 * 60 * 1000 }
+        ];
+
+        function ensurePollenCanvas() {
+            if (pollenCanvas) return;
+            pollenCanvas = document.getElementById('pollen-chart');
+            if (!pollenCanvas) return;
+            pollenCanvas.addEventListener('wheel', onPollenWheel, { passive: false });
+            pollenCanvas.addEventListener('pointerdown', onPollenDragStart);
+            window.addEventListener('pointerup', onPollenDragEnd);
+            window.addEventListener('pointermove', onPollenDragMove);
+            pollenCanvas.addEventListener('mousedown', onPollenMouseDown);
+            window.addEventListener('mouseup', onPollenMouseUp);
+            window.addEventListener('mousemove', onPollenMouseMove);
+            window.addEventListener('blur', onPollenMouseUp);
+            reloadHistory();
+            resizePollenCanvas();
+            initChartControls();
+        }
+
+        function resizePollenCanvas() {
+            if (!pollenCanvas) return;
+            const rect = pollenCanvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const width = Math.max(1, Math.floor(rect.width * dpr));
+            const height = Math.max(1, Math.floor(rect.height * dpr));
+            pollenCanvas.width = width;
+            pollenCanvas.height = height;
+            pollenCtx = pollenCanvas.getContext('2d');
+            pollenCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            drawPollenChart();
+        }
+
+        function updatePollenChart(value) {
+            ensurePollenCanvas();
+            if (!pollenCanvas) return;
+            const num = Number(value);
+            if (!isNaN(num)) {
+                const now = Date.now();
+                const last = pollenSeries[pollenSeries.length - 1];
+                if (!last || now - last.t >= 1000) {
+                    pollenSeries.push({ t: now, v: Math.max(0, Math.min(100, num)) });
+                }
+                const cutoff = now - pollenWindowMaxMs;
+                while (pollenSeries.length && pollenSeries[0].t < cutoff) {
+                    pollenSeries.shift();
+                }
+            }
+            drawPollenChart();
+        }
+
+        function drawPollenChart() {
+            if (!pollenCanvas || !pollenCtx) return;
+            const rect = pollenCanvas.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+            if (width <= 0 || height <= 0) return;
+
+            const ctx = pollenCtx;
+            ctx.clearRect(0, 0, width, height);
+
+            const pad = { top: 12, right: 0, bottom: 36, left: 34 };
+            const plotW = Math.max(1, width - pad.left - pad.right);
+            const plotH = Math.max(1, height - pad.top - pad.bottom);
+
+            ctx.clearRect(0, 0, width, height);
+
+            const bgGradient = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
+            bgGradient.addColorStop(0, '#1c1a1b');
+            bgGradient.addColorStop(1, '#141314');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(pad.left, pad.top, width - pad.left, plotH);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(pad.left, pad.top, width - pad.left, plotH);
+            ctx.clip();
+
+            const now = Date.now();
+            if (!pollenUserPanned) {
+                pollenViewOffsetMs = 0;
+            } else if (pollenViewOffsetMs <= 0.5) {
+                pollenUserPanned = false;
+                pollenViewOffsetMs = 0;
+            }
+            const maxOffset = getPollenMaxOffset(now);
+            pollenViewOffsetMs = Math.max(0, Math.min(maxOffset, pollenViewOffsetMs));
+            const viewEnd = now - pollenViewOffsetMs;
+            const start = viewEnd - pollenWindowMs;
+            pollenPlotWidth = plotW;
+
+            const halfHourMs = 30 * 60 * 1000;
+            const tenMinMs = 10 * 60 * 1000;
+            const oneMinMs = 60 * 1000;
+            const showMinuteGrid = pollenWindowMs <= 30 * 60 * 1000;
+            const firstMajor = Math.floor(start / halfHourMs) * halfHourMs;
+            const lastMajor = Math.ceil(viewEnd / halfHourMs) * halfHourMs;
+            ctx.lineWidth = 1;
+            for (let t = firstMajor; t <= lastMajor; t += halfHourMs) {
+                const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                ctx.strokeStyle = 'rgba(192, 192, 240, 0.45)';
+                ctx.beginPath();
+                ctx.moveTo(x, pad.top);
+                ctx.lineTo(x, pad.top + plotH);
+                ctx.stroke();
+            }
+            const firstTen = Math.floor(start / tenMinMs) * tenMinMs;
+            const lastTen = Math.ceil(viewEnd / tenMinMs) * tenMinMs;
+            for (let t = firstTen; t <= lastTen; t += tenMinMs) {
+                if (t % halfHourMs === 0) continue;
+                const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                ctx.strokeStyle = 'rgba(192, 192, 240, 0.3)';
+                ctx.beginPath();
+                ctx.moveTo(x, pad.top);
+                ctx.lineTo(x, pad.top + plotH);
+                ctx.stroke();
+            }
+            if (showMinuteGrid) {
+                const firstMin = Math.floor(start / oneMinMs) * oneMinMs;
+                const lastMin = Math.ceil(viewEnd / oneMinMs) * oneMinMs;
+                for (let t = firstMin; t <= lastMin; t += oneMinMs) {
+                    if (t % tenMinMs === 0) continue;
+                    const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                    if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                    ctx.strokeStyle = 'rgba(192, 192, 240, 0.12)';
+                    ctx.beginPath();
+                    ctx.moveTo(x, pad.top);
+                    ctx.lineTo(x, pad.top + plotH);
+                    ctx.stroke();
+                }
+            }
+            const tickLabels = [];
+            const firstLabel = Math.floor(start / tenMinMs) * tenMinMs;
+            const lastLabel = Math.ceil(viewEnd / tenMinMs) * tenMinMs;
+            for (let t = firstLabel; t <= lastLabel; t += tenMinMs) {
+                const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                tickLabels.push({ t, x });
+            }
+            for (let i = 1; i <= 3; i++) {
+                const y = pad.top + (plotH * i) / 4;
+                ctx.strokeStyle = 'rgba(192, 192, 240, 0.2)';
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            let previous = null;
+            const points = [];
+            for (const point of pollenSeries) {
+                if (point.t < start) {
+                    previous = point;
+                    continue;
+                }
+                if (point.t > viewEnd) break;
+                points.push(point);
+            }
+            if (previous && points.length) {
+                points.unshift({ t: start, v: previous.v });
+            } else if (previous && points.length === 0) {
+                points.push({ t: start, v: previous.v });
+            }
+            if (points.length) {
+                const last = points[points.length - 1];
+                if (last.t < viewEnd) {
+                    points.push({ t: viewEnd, v: last.v });
+                }
+            }
+
+            if (points.length > 1) {
+                const fillGradient = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
+                const topRgb = parseRgb(getBackpackColor(100)) || { r: 255, g: 255, b: 255 };
+                const midRgb = parseRgb(getBackpackColor(50)) || { r: 255, g: 255, b: 255 };
+                const botRgb = parseRgb(getBackpackColor(0)) || { r: 255, g: 255, b: 255 };
+                fillGradient.addColorStop(0, `rgba(${topRgb.r}, ${topRgb.g}, ${topRgb.b}, 0.6)`);
+                fillGradient.addColorStop(0.5, `rgba(${midRgb.r}, ${midRgb.g}, ${midRgb.b}, 0.5)`);
+                fillGradient.addColorStop(1, `rgba(${botRgb.r}, ${botRgb.g}, ${botRgb.b}, 0.18)`);
+
+                const firstPoint = points[0];
+                const lastPoint = points[points.length - 1];
+                const firstX = pad.left + ((firstPoint.t - start) / pollenWindowMs) * plotW;
+                const lastX = pad.left + ((lastPoint.t - start) / pollenWindowMs) * plotW;
+
+                ctx.beginPath();
+                for (let i = 0; i < points.length; i++) {
+                    const point = points[i];
+                    const x = pad.left + ((point.t - start) / pollenWindowMs) * plotW;
+                    const y = pad.top + (1 - point.v / 100) * plotH;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.lineTo(lastX, pad.top + plotH);
+                ctx.lineTo(firstX, pad.top + plotH);
+                ctx.closePath();
+                ctx.fillStyle = fillGradient;
+                ctx.fill();
+
+                ctx.lineWidth = 2;
+                const strokeGradient = ctx.createLinearGradient(pad.left, 0, pad.left + plotW, 0);
+                for (const point of points) {
+                    const stop = Math.max(0, Math.min(1, (point.t - start) / pollenWindowMs));
+                    strokeGradient.addColorStop(stop, getBackpackColor(point.v));
+                }
+                ctx.strokeStyle = strokeGradient;
+                ctx.beginPath();
+                for (let i = 0; i < points.length; i++) {
+                    const point = points[i];
+                    const x = pad.left + ((point.t - start) / pollenWindowMs) * plotW;
+                    const y = pad.top + (1 - point.v / 100) * plotH;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            } else {
+                ctx.fillStyle = '#666';
+                ctx.font = '11px Segoe UI';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Waiting for pollen...', pad.left + plotW / 2, pad.top + plotH / 2);
+            }
+
+            ctx.restore();
+
+            const tickBaseY = pad.top + plotH + 4;
+            ctx.fillStyle = '#8a8a8a';
+            ctx.font = '11px Segoe UI';
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= 4; i++) {
+                const value = 100 - i * 25;
+                const y = pad.top + (plotH * i) / 4;
+                ctx.fillText(`${value}%`, pad.left - 6, y);
+            }
+            ctx.fillStyle = '#8a8a8a';
+            ctx.font = '11px Segoe UI';
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'center';
+            ctx.lineWidth = 2;
+            for (const label of tickLabels) {
+                const isHalfHour = label.t % halfHourMs === 0;
+                const isTenMin = label.t % tenMinMs === 0;
+                const isMinute = label.t % oneMinMs === 0;
+                const tickHeight = isHalfHour ? 14 : isTenMin ? 11 : 7;
+                const tickTop = tickBaseY;
+                const tickBottom = tickBaseY + tickHeight;
+                ctx.strokeStyle = isHalfHour ? 'rgba(192, 192, 240, 0.65)' : isTenMin ? 'rgba(192, 192, 240, 0.45)' : isMinute ? 'rgba(192, 192, 240, 0.3)' : 'rgba(192, 192, 240, 0.3)';
+                ctx.beginPath();
+                ctx.moveTo(label.x, tickTop);
+                ctx.lineTo(label.x, tickBottom);
+                ctx.stroke();
+                ctx.fillText(formatClockTime(label.t), label.x, tickBaseY + 16);
+            }
+            const minorStart = Math.floor(start / oneMinMs) * oneMinMs;
+            const minorEnd = Math.ceil(viewEnd / oneMinMs) * oneMinMs;
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(192, 192, 240, 0.3)';
+            for (let t = minorStart; t <= minorEnd; t += oneMinMs) {
+                if (t % tenMinMs === 0) continue;
+                const x = pad.left + ((t - start) / pollenWindowMs) * plotW;
+                if (x < pad.left - 1 || x > pad.left + plotW + 1) continue;
+                ctx.beginPath();
+                ctx.moveTo(x, tickBaseY);
+                ctx.lineTo(x, tickBaseY + 7);
+                ctx.stroke();
+            }
+        }
+
+        function onPollenWheel(event) {
+            event.preventDefault();
+            const usePan = event.shiftKey || (event.buttons & 1) || Math.abs(event.deltaX) > Math.abs(event.deltaY);
+            if (usePan) {
+                const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+                const panMs = delta * (pollenWindowMs / 600);
+                pollenViewOffsetMs = Math.max(0, Math.min(getPollenMaxOffset(Date.now()), pollenViewOffsetMs + panMs));
+                pollenUserPanned = pollenViewOffsetMs > 0;
+                drawPollenChart();
+                return;
+            }
+            const direction = event.deltaY > 0 ? 1 : -1;
+            const currentIndex = getZoomIndex();
+            const nextIndex = Math.max(0, Math.min(zoomSteps.length - 1, currentIndex + direction));
+            pollenWindowMs = zoomSteps[nextIndex].ms;
+            pollenViewOffsetMs = Math.max(0, Math.min(getPollenMaxOffset(Date.now()), pollenViewOffsetMs));
+            updateZoomControl();
+            drawPollenChart();
+        }
+
+        function onPollenDragStart(event) {
+            if (!pollenCanvas) return;
+            pollenDrag = { x: event.clientX, offset: pollenViewOffsetMs };
+            pollenCanvas.setPointerCapture(event.pointerId);
+            pollenCanvas.style.cursor = 'grabbing';
+        }
+
+        function onPollenDragMove(event) {
+            if (!pollenDrag || !pollenCanvas) return;
+            const rect = pollenCanvas.getBoundingClientRect();
+            const plotW = pollenPlotWidth || rect.width;
+            if (plotW <= 0) return;
+            const deltaX = event.clientX - pollenDrag.x;
+            const msPerPx = pollenWindowMs / plotW;
+            const nextOffset = pollenDrag.offset + deltaX * msPerPx;
+            pollenViewOffsetMs = Math.max(0, Math.min(getPollenMaxOffset(Date.now()), nextOffset));
+            pollenUserPanned = pollenViewOffsetMs > 0;
+            drawPollenChart();
+        }
+
+        function onPollenDragEnd(event) {
+            if (!pollenDrag || !pollenCanvas) return;
+            try {
+                pollenCanvas.releasePointerCapture(event.pointerId);
+            } catch (err) {}
+            pollenDrag = null;
+            pollenCanvas.style.cursor = 'grab';
+        }
+
+        function getPollenMaxOffset(now) {
+            const earliest = pollenSeries.length ? pollenSeries[0].t : now;
+            return Math.max(0, now - earliest - pollenWindowMs);
+        }
+
+        function reloadHistory() {
+            const oldScript = document.getElementById('history-script');
+            if (oldScript) oldScript.remove();
+            const script = document.createElement('script');
+            script.id = 'history-script';
+            script.src = 'stat_monitor_history.js?t=' + Date.now();
+            script.onload = applyHistoryFromFile;
+            script.onerror = function() {};
+            document.head.appendChild(script);
+        }
+
+        function applyHistoryFromFile() {
+            if (typeof statHistory === 'undefined' || !statHistory) {
+                scheduleHistoryRetry();
+                return;
+            }
+            if (Array.isArray(statHistory.backpack) && statHistory.backpack.length) {
+                pollenSeries.length = 0;
+                for (const entry of statHistory.backpack) {
+                    if (!Array.isArray(entry) || entry.length < 2) continue;
+                    const t = Number(entry[0]);
+                    const v = Number(entry[1]);
+                    if (isNaN(t) || isNaN(v)) continue;
+                    pollenSeries.push({ t, v: Math.max(0, Math.min(100, v)) });
+                }
+                pollenHistoryLoaded = true;
+                drawPollenChart();
+            } else {
+                scheduleHistoryRetry();
+            }
+        }
+
+        function scheduleHistoryRetry() {
+            if (historyRetryTimer) return;
+            historyRetryTimer = setTimeout(() => {
+                historyRetryTimer = null;
+                reloadHistory();
+            }, 1000);
+        }
+
+        function loadPollenSeries() {
+            try {
+                const raw = localStorage.getItem(pollenStorageKey);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                if (!Array.isArray(data)) return;
+                const cutoff = Date.now() - pollenWindowMaxMs;
+                pollenSeries.length = 0;
+                for (const entry of data) {
+                    if (!entry || typeof entry.t !== 'number' || typeof entry.v !== 'number') continue;
+                    if (entry.t < cutoff) continue;
+                    pollenSeries.push({ t: entry.t, v: Math.max(0, Math.min(100, entry.v)) });
+                }
+            } catch (err) {}
+        }
+
+        function savePollenSeries(force) {
+            const now = Date.now();
+            if (!force && now - pollenLastSave < 2000) return;
+            pollenLastSave = now;
+            try {
+                localStorage.setItem(pollenStorageKey, JSON.stringify(pollenSeries));
+            } catch (err) {}
+        }
+
+        function onPollenMouseDown(event) {
+            if (!pollenCanvas || event.button !== 0) return;
+            pollenDrag = { x: event.clientX, offset: pollenViewOffsetMs };
+            pollenCanvas.style.cursor = 'grabbing';
+        }
+
+        function onPollenMouseMove(event) {
+            if (!pollenDrag || !pollenCanvas || !(event.buttons & 1)) return;
+            const rect = pollenCanvas.getBoundingClientRect();
+            const plotW = pollenPlotWidth || rect.width;
+            if (plotW <= 0) return;
+            const deltaX = event.clientX - pollenDrag.x;
+            const msPerPx = pollenWindowMs / plotW;
+            const nextOffset = pollenDrag.offset + deltaX * msPerPx;
+            pollenViewOffsetMs = Math.max(0, Math.min(getPollenMaxOffset(Date.now()), nextOffset));
+            pollenUserPanned = pollenViewOffsetMs > 0;
+            drawPollenChart();
+        }
+
+        function onPollenMouseUp() {
+            pollenDrag = null;
+            if (pollenCanvas) {
+                pollenCanvas.style.cursor = 'grab';
+            }
+        }
+
+        function initChartControls() {
+            const zoomRange = document.getElementById('zoom-range');
+            if (!zoomRange) return;
+
+            zoomRange.min = '0';
+            zoomRange.max = String(zoomSteps.length - 1);
+            zoomRange.step = '1';
+            zoomRange.value = String(getZoomIndex());
+            zoomRange.addEventListener('input', () => {
+                const idx = Number(zoomRange.value);
+                const next = zoomSteps[Math.max(0, Math.min(zoomSteps.length - 1, idx))];
+                pollenWindowMs = next.ms;
+                pollenViewOffsetMs = Math.max(0, Math.min(getPollenMaxOffset(Date.now()), pollenViewOffsetMs));
+                updateZoomControl();
+                drawPollenChart();
+            });
+
+            renderZoomTicks();
+            updateZoomControl();
+        }
+
+        function getZoomIndex() {
+            let best = 0;
+            let bestScore = Infinity;
+            for (let i = 0; i < zoomSteps.length; i++) {
+                const diff = Math.abs(pollenWindowMs - zoomSteps[i].ms);
+                if (diff < bestScore) {
+                    bestScore = diff;
+                    best = i;
+                }
+            }
+            return best;
+        }
+
+        function renderZoomTicks() {
+            const zoomTicks = document.getElementById('zoom-ticks');
+            if (!zoomTicks) return;
+            zoomTicks.innerHTML = '';
+            const tick = document.createElement('span');
+            tick.classList.add('mid');
+            zoomTicks.appendChild(tick);
+        }
+
+        function updateZoomControl() {
+            const zoomRange = document.getElementById('zoom-range');
+            if (!zoomRange) return;
+            zoomRange.value = String(getZoomIndex());
+        }
+
+        function chooseTimeStep(windowMs) {
+            const steps = [
+                1000, 2000, 5000, 10000, 15000, 30000,
+                60000, 120000, 300000, 600000, 900000, 1800000,
+                3600000, 7200000
+            ];
+            const target = 6;
+            let bestStep = steps[0];
+            let bestScore = Infinity;
+            for (const step of steps) {
+                const count = windowMs / step;
+                if (count < 2 || count > 18) continue;
+                const score = Math.abs(count - target);
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestStep = step;
+                }
+            }
+            return bestStep;
+        }
+
+        function formatClockTime(timeMs) {
+            const date = new Date(timeMs);
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+
         setInterval(reloadMessages, 1000);
         setInterval(reloadStats, 1000);
-        window.addEventListener('resize', updateHeaderLayout);
+        window.addEventListener('resize', () => {
+            updateHeaderLayout();
+            resizePollenCanvas();
+        });
+        ensurePollenCanvas();
+        drawPollenChart();
         reloadMessages();
         reloadStats();
     </script>
